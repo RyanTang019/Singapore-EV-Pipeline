@@ -1,4 +1,4 @@
-# orchestration
+# orchestrate
 
 ## Getting started
 
