@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[codz]
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Environments
+.env
+.venv
+
+# Claude Code
+.claude/
+
+# VS Code
+.vscode/
+
+# uv
+#uv.lock
+
+# Testing
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+htmlcov/
+
+# Type checkers
+.mypy_cache/
+.ruff_cache/
+
+# Dagster
+logs/
+orchestrate/.dg/
+
+# dbt
+transform/target/
+transform/dbt_packages/
+transform/logs/
+transform/.user.yml
