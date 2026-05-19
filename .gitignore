@@ -40,3 +40,7 @@ transform/target/
 transform/dbt_packages/
 transform/logs/
 transform/.user.yml
+
+# terraform
+terraform/terraform.tfvars
+terraform/.terraform
