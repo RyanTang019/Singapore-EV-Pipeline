@@ -16,6 +16,7 @@ uv sync
 Singapore-EV-Pipeline/
   orchestrate/    ← Dagster orchestration (dg CLI config)
   transform/      ← dbt transformation (BigQuery adapter)
+  terraform/      ← infrastructure as code (BigQuery datasets, IAM)
 ```
 
 ### How this was initialised
@@ -63,15 +64,36 @@ terraform apply
 
 A Hetzner CPX22 VM ($10.34/mo, 2 vCPU AMD, 4GB RAM, 80GB SSD) hosts Dagster and runs ingestion scripts.
 
-## Next Steps
+## Roadmap
 
-- [ ] Write Python ingestion scripts for LTA EV charging point API
-- [ ] Load raw data into BigQuery `raw` dataset via the BigQuery SDK
-- [ ] Build dbt staging models to clean and type the raw data
-- [ ] Build dbt mart models for analytics
+**Infrastructure**
+- [x] Provision BigQuery datasets (`raw`, `staging`, `marts`) via Terraform
+- [x] IAM bindings for Dagster service account
+- [x] Rent Hetzner CPX22 VM for hosting Dagster
 - [ ] Deploy and configure Dagster on the Hetzner VM
 - [ ] Configure service account key on the VM for BigQuery access
+- [ ] Terraform the VM provisioning
+
+**Ingestion**
+- [ ] Write Python ingestion scripts for LTA EV charging point API
+- [ ] Load raw data into BigQuery `raw` dataset via the BigQuery SDK
+- [ ] Add additional sources (SingStat population, COE prices, weather)
+- [ ] Implement incremental loads
+
+**Transformation**
+- [ ] Build dbt staging models to clean and type the raw data
+- [ ] Build dbt mart models — fact and dimension tables for analytics
+- [ ] Add dbt tests (not null, uniqueness, referential integrity)
+
+**Orchestration**
 - [ ] Schedule ingestion jobs via Dagster
+- [ ] Implement Dagster Software-Defined Assets
+- [ ] Add Dagster sensors for event-driven triggering
+
+**Observability & Delivery**
+- [ ] Add data quality monitoring (Elementary or Great Expectations)
+- [ ] Build Looker Studio dashboard on top of marts
+- [ ] CI/CD with GitHub Actions (`terraform plan` on PRs, `dbt test` on merge)
 
 ## References
 
