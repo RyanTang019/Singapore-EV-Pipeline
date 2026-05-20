@@ -1,0 +1,1 @@
+This is a UV managed project. Prefix necessary commands with `UV RUN`.
