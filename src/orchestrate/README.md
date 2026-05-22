@@ -1,6 +1,6 @@
 # orchestrate
 
-## Getting started
+## Getting started!
 
 ### Installing dependencies
 
