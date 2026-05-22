@@ -45,11 +45,11 @@ uv run dbt run --profiles-dir transform --project-dir transform
 
 Three datasets provisioned via Terraform in `asia-southeast1`:
 
-| Dataset | Purpose |
-|---------|---------|
-| `raw` | Raw ingested data from APIs |
-| `staging` | dbt staging models — cleaned and typed |
-| `marts` | dbt mart models — analytics-ready for Looker Studio |
+| Dataset     | Purpose                                              |
+| ----------- | ---------------------------------------------------- |
+| `raw`     | Raw ingested data from APIs                          |
+| `staging` | dbt staging models — cleaned and typed              |
+| `marts`   | dbt mart models — analytics-ready for Looker Studio |
 
 IAM bindings grant the Dagster service account `bigquery.dataEditor` on all three datasets.
 
@@ -67,30 +67,36 @@ A Hetzner CPX22 VM ($10.34/mo, 2 vCPU AMD, 4GB RAM, 80GB SSD) hosts Dagster and 
 ## Roadmap
 
 **Infrastructure**
-- [x] Provision BigQuery datasets (`raw`, `staging`, `marts`) via Terraform
-- [x] IAM bindings for Dagster service account
-- [x] Rent Hetzner CPX22 VM for hosting Dagster
+
+- [X] Provision BigQuery datasets (`raw`, `staging`, `marts`) via Terraform
+- [X] IAM bindings for Dagster service account
+- [X] Rent Hetzner CPX22 VM for hosting Dagster
+- [X] Install Docker on the VM
 - [ ] Deploy and configure Dagster on the Hetzner VM
 - [ ] Configure service account key on the VM for BigQuery access
 - [ ] Terraform the VM provisioning
 
 **Ingestion**
+
 - [ ] Write Python ingestion scripts for LTA EV charging point API
 - [ ] Load raw data into BigQuery `raw` dataset via the BigQuery SDK
 - [ ] Add additional sources (SingStat population, COE prices, weather)
 - [ ] Implement incremental loads
 
 **Transformation**
+
 - [ ] Build dbt staging models to clean and type the raw data
 - [ ] Build dbt mart models — fact and dimension tables for analytics
 - [ ] Add dbt tests (not null, uniqueness, referential integrity)
 
 **Orchestration**
+
 - [ ] Schedule ingestion jobs via Dagster
 - [ ] Implement Dagster Software-Defined Assets
 - [ ] Add Dagster sensors for event-driven triggering
 
 **Observability & Delivery**
+
 - [ ] Add data quality monitoring (Elementary or Great Expectations)
 - [ ] Build Looker Studio dashboard on top of marts
 - [ ] CI/CD with GitHub Actions (`terraform plan` on PRs, `dbt test` on merge)
@@ -103,4 +109,3 @@ A Hetzner CPX22 VM ($10.34/mo, 2 vCPU AMD, 4GB RAM, 80GB SSD) hosts Dagster and 
 - [dbt](https://docs.getdbt.com/) — data transformation
 - [dbt-bigquery](https://docs.getdbt.com/docs/core/connect-data-platform/bigquery-setup) — BigQuery adapter
 - [BigQuery](https://cloud.google.com/bigquery/docs) — data warehouse
-

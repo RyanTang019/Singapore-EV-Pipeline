@@ -11,6 +11,10 @@ dependencies = [
     "dbt-bigquery",
 ]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["orchestrate*"]
+
 [tool.dg]
 directory_type = "project"
 
