@@ -45,7 +45,7 @@ services:
       - -p
       - "3000"
       - -w
-      - workspace.yaml
+      - workspace.yml
     container_name: ev_pipeline_webserver
     ports:
       - "127.0.0.1:3000:3000"
