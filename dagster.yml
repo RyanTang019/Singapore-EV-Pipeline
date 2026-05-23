@@ -1,0 +1,36 @@
+run_launcher:
+  module: dagster_docker
+  class: DockerRunLauncher
+  config:
+    env_vars:
+      - DAGSTER_POSTGRES_USER
+      - DAGSTER_POSTGRES_PASSWORD
+      - DAGSTER_POSTGRES_DB
+      - DAGSTER_POSTGRES_HOST
+      - GOOGLE_APPLICATION_CREDENTIALS
+      - GCP_PROJECT_ID
+      - GCP_REGION
+      - BQ_DATASET_RAW
+      - LTA_API_KEY
+    network: ev_pipeline_network
+    container_kwargs:
+      volumes:
+        - /root/ev-pipeline/ev-pipeline-dagster-key.json:/opt/dagster/app/ev-pipeline-dagster-key.json    #need to double check path on the VM
+
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+
+storage:
+  postgres:
+    postgres_db:
+      username:
+        env: DAGSTER_POSTGRES_USER
+      password:
+        env: DAGSTER_POSTGRES_PASSWORD
+      hostname:
+        env: DAGSTER_POSTGRES_HOST
+      db_name:
+        env: DAGSTER_POSTGRES_DB
+      port: 5432
+

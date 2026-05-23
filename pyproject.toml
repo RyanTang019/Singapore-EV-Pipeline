@@ -7,8 +7,14 @@ requires-python = ">=3.10"
 dependencies = [
     "dagster==1.13.5",
     "dagster-dg-cli",
+    "dagster-docker>=0.29.5",
+    "dagster-gcp>=0.29.5",
+    "dagster-postgres>=0.29.5",
     "dagster-webserver",
     "dbt-bigquery",
+    "google-cloud-bigquery>=3.41.0",
+    "pandas>=2.3.3",
+    "requests>=2.34.2",
 ]
 
 [tool.setuptools.packages.find]

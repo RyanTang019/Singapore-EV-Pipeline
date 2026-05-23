@@ -71,7 +71,7 @@ A Hetzner CPX22 VM ($10.34/mo, 2 vCPU AMD, 4GB RAM, 80GB SSD) hosts Dagster and 
 - [X] Provision BigQuery datasets (`raw`, `staging`, `marts`) via Terraform
 - [X] IAM bindings for Dagster service account
 - [X] Rent Hetzner CPX22 VM for hosting Dagster
-- [X] Install Docker on the VM
+- [ ] Install Docker on the VM
 - [ ] Deploy and configure Dagster on the Hetzner VM
 - [ ] Configure service account key on the VM for BigQuery access
 - [ ] Terraform the VM provisioning

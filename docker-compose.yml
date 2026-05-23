@@ -1,0 +1,95 @@
+services:
+  postgresql:
+    image: postgres:15
+    container_name: ev_pipeline_postgresql
+    environment:
+      POSTGRES_USER: "dagster_user"                     #can change the user and password if we want
+      POSTGRES_PASSWORD: "dagster_password"
+      POSTGRES_DB: "dagster_db"
+    networks:
+      - ev_pipeline_network           # puts the postgres on the shared network so that docker compose down doesn;t wipe the memory
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dagster_user -d dagster_db"]
+      interval: 10s
+      timeout: 8s
+      retries: 5
+
+  user_code:
+    image: ghcr.io/ryantang019/ev-pipeline-user-code:latest
+    container_name: ev_pipeline_user_code
+    restart: always
+    environment:
+      DAGSTER_POSTGRES_USER: "dagster_user"
+      DAGSTER_POSTGRES_PASSWORD: "dagster_password"
+      DAGSTER_POSTGRES_DB: "dagster_db"
+      DAGSTER_POSTGRES_HOST: "ev_pipeline_postgresql"
+      DAGSTER_CURRENT_IMAGE: "ghcr.io/ryantang019/ev-pipeline-user-code:latest"
+      GOOGLE_APPLICATION_CREDENTIALS: "/opt/dagster/app/ev-pipeline-dagster-key.json"
+      GCP_PROJECT_ID: "project-f78a2754-498a-4582-af0"
+      GCP_REGION: "asia-southeast1"
+      BQ_DATASET_RAW: "raw"
+      LTA_API_KEY: "${LTA_API_KEY}"
+    volumes:
+      - /root/ev-pipeline/ev-pipeline-dagster-key.json:/opt/dagster/app/ev-pipeline-dagster-key.json:ro
+    networks:
+      - ev_pipeline_network
+
+  webserver:
+    image: ghcr.io/ryantang019/ev-pipeline-dagster:latest
+    entrypoint:
+      - dagster-webserver
+      - -h
+      - "0.0.0.0"
+      - -p
+      - "3000"
+      - -w
+      - workspace.yaml
+    container_name: ev_pipeline_webserver
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      DAGSTER_POSTGRES_USER: "dagster_user"
+      DAGSTER_POSTGRES_PASSWORD: "dagster_password"
+      DAGSTER_POSTGRES_DB: "dagster_db"
+      DAGSTER_POSTGRES_HOST: "ev_pipeline_postgresql"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - ev_pipeline_network
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      user_code:
+        condition: service_healthy
+
+  daemon:
+    image: ghcr.io/ryantang019/ev-pipeline-dagster:latest
+    entrypoint:
+      - dagster-daemon
+      - run
+    container_name: ev_pipeline_daemon
+    restart: on-failure
+    environment:
+      DAGSTER_POSTGRES_USER: "dagster_user"
+      DAGSTER_POSTGRES_PASSWORD: "dagster_password"
+      DAGSTER_POSTGRES_DB: "dagster_db"
+      DAGSTER_POSTGRES_HOST: "ev_pipeline_postgresql"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - ev_pipeline_network
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      user_code:
+        condition: service_started
+
+networks:
+  ev_pipeline_network:
+    driver: bridge
+    name: ev_pipeline_network
+
+volumes:
+  postgres_data:
