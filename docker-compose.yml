@@ -86,6 +86,14 @@ services:
       user_code:
         condition: service_started
 
+  watchtower:
+    image: containrrr/watchtower
+    container_name: ev_pipeline_watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 30 --cleanup
+    restart: always
+
 networks:
   ev_pipeline_network:
     driver: bridge
