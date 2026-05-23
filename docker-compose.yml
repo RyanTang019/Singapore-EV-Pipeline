@@ -17,7 +17,7 @@ services:
       retries: 5
 
   user_code:
-    image: ghcr.io/ryantang019/ev-pipeline-user-code:latest
+    image: ghcr.io/ryantang019/singapore-ev-pipeline/user-code:latest
     container_name: ev_pipeline_user_code
     restart: always
     environment:
@@ -25,7 +25,7 @@ services:
       DAGSTER_POSTGRES_PASSWORD: "dagster_password"
       DAGSTER_POSTGRES_DB: "dagster_db"
       DAGSTER_POSTGRES_HOST: "ev_pipeline_postgresql"
-      DAGSTER_CURRENT_IMAGE: "ghcr.io/ryantang019/ev-pipeline-user-code:latest"
+      DAGSTER_CURRENT_IMAGE: "ghcr.io/ryantang019/singapore-ev-pipeline/user-code:latest"
       GOOGLE_APPLICATION_CREDENTIALS: "/opt/dagster/app/ev-pipeline-dagster-key.json"
       GCP_PROJECT_ID: "project-f78a2754-498a-4582-af0"
       GCP_REGION: "asia-southeast1"
@@ -37,7 +37,7 @@ services:
       - ev_pipeline_network
 
   webserver:
-    image: ghcr.io/ryantang019/ev-pipeline-dagster:latest
+    image: ghcr.io/ryantang019/singapore-ev-pipeline/dagster:latest
     entrypoint:
       - dagster-webserver
       - -h
@@ -65,7 +65,7 @@ services:
         condition: service_healthy
 
   daemon:
-    image: ghcr.io/ryantang019/ev-pipeline-dagster:latest
+    image: ghcr.io/ryantang019/singapore-ev-pipeline/dagster:latest
     entrypoint:
       - dagster-daemon
       - run

@@ -1,0 +1,54 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-dagster:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push dagster image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: Dockerfile_dagster
+          push: true
+          tags: ghcr.io/${{ github.repository }}/dagster:latest
+
+  build-user-code:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push user code image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: Dockerfile_user_code
+          push: true
+          tags: ghcr.io/${{ github.repository }}/user-code:latest
