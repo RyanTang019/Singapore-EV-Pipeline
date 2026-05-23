@@ -71,10 +71,14 @@ A Hetzner CPX22 VM ($10.34/mo, 2 vCPU AMD, 4GB RAM, 80GB SSD) hosts Dagster and 
 - [X] Provision BigQuery datasets (`raw`, `staging`, `marts`) via Terraform
 - [X] IAM bindings for Dagster service account
 - [X] Rent Hetzner CPX22 VM for hosting Dagster
+- [X] Set up GitHub Actions to build and push Docker images to GHCR
+- [X] Set up Watchtower for automated deploys on image updates
 - [ ] Install Docker on the VM
 - [ ] Deploy and configure Dagster on the Hetzner VM
 - [ ] Configure service account key on the VM for BigQuery access
-- [ ] Terraform the VM provisioning
+- [ ] Terraform the Hetzner VM provisioning
+- [ ] Add cloud-init script to bootstrap VM automatically on creation
+- [ ] Full automated flow: `terraform apply` → VM created → cloud-init bootstraps → Watchtower deploys
 
 **Ingestion**
 
