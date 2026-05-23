@@ -14,6 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Lowercase repo name
+        run: echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
       - name: Login to GHCR
         uses: docker/login-action@v2
         with:
@@ -27,7 +30,7 @@ jobs:
           context: .
           file: Dockerfile_dagster
           push: true
-          tags: ghcr.io/${{ github.repository }}/dagster:latest
+          tags: ghcr.io/${{ env.REPO_LOWER }}/dagster:latest
 
   build-user-code:
     runs-on: ubuntu-latest
@@ -37,6 +40,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+
+      - name: Lowercase repo name
+        run: echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
       - name: Login to GHCR
         uses: docker/login-action@v2
@@ -51,4 +57,4 @@ jobs:
           context: .
           file: Dockerfile_user_code
           push: true
-          tags: ghcr.io/${{ github.repository }}/user-code:latest
+          tags: ghcr.io/${{ env.REPO_LOWER }}/user-code:latest
