@@ -20,6 +20,8 @@ services:
     image: ghcr.io/ryantang019/singapore-ev-pipeline/user-code:latest
     container_name: ev_pipeline_user_code
     restart: always
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     environment:
       DAGSTER_POSTGRES_USER: "dagster_user"
       DAGSTER_POSTGRES_PASSWORD: "dagster_password"
@@ -47,6 +49,8 @@ services:
       - -w
       - workspace.yml
     container_name: ev_pipeline_webserver
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     ports:
       - "127.0.0.1:3000:3000"
     environment:
@@ -71,6 +75,8 @@ services:
       - run
     container_name: ev_pipeline_daemon
     restart: on-failure
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     environment:
       DAGSTER_POSTGRES_USER: "dagster_user"
       DAGSTER_POSTGRES_PASSWORD: "dagster_password"
@@ -89,6 +95,8 @@ services:
   watchtower:
     image: containrrr/watchtower
     container_name: ev_pipeline_watchtower
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --interval 30 --cleanup
