@@ -62,7 +62,7 @@ terraform apply
 
 ### VM (Hetzner CPX22)
 
-A Hetzner CPX22 VM ($10.34/mo, 2 vCPU AMD, 4GB RAM, 80GB SSD) hosts Dagster and runs ingestion scripts.
+A Hetzner CPX11 VM hosts Dagster and runs ingestion scripts.
 
 ## Roadmap
 
@@ -70,7 +70,7 @@ A Hetzner CPX22 VM ($10.34/mo, 2 vCPU AMD, 4GB RAM, 80GB SSD) hosts Dagster and 
 
 - [X] Provision BigQuery datasets (`raw`, `staging`, `marts`) via Terraform
 - [X] IAM bindings for Dagster service account
-- [X] Rent Hetzner CPX22 VM for hosting Dagster
+- [X] Rent Hetzner CPX11 VM for hosting Dagster
 - [X] Set up GitHub Actions to build and push Docker images to GHCR
 - [X] Set up Watchtower for automated deploys on image updates
 - [ ] Install Docker on the VM
