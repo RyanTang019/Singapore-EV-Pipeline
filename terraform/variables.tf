@@ -31,3 +31,19 @@ variable "service_account_email" {
   description = "Email of the Dagster service account"
   type        = string
 }
+
+variable "hcloud_token" {
+  description = "Hetzner Cloud API token"
+  type        = string
+  sensitive   = true
+}
+
+variable "ssh_public_key_1" {
+  description = "SSH public key for VM access (developer 1)"
+  type        = string
+}
+
+variable "ssh_public_key_2" {
+  description = "SSH public key for VM access (developer 2)"
+  type        = string
+}
