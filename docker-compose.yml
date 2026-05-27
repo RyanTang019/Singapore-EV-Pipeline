@@ -47,7 +47,7 @@ services:
       - -p
       - "3000"
       - -w
-      - workspace.yml
+      - workspace.yaml
     container_name: ev_pipeline_webserver
     labels:
       com.centurylinklabs.watchtower.enable: "true"
@@ -93,7 +93,7 @@ services:
         condition: service_started
 
   watchtower:
-    image: containrrr/watchtower
+    image: containrrr/watchtower:1.7.1
     container_name: ev_pipeline_watchtower
     environment:
       WATCHTOWER_LABEL_ENABLE: "true"
