@@ -97,6 +97,7 @@ services:
     container_name: ev_pipeline_watchtower
     environment:
       WATCHTOWER_LABEL_ENABLE: "true"
+      DOCKER_API_VERSION: "1.44"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --interval 30 --cleanup

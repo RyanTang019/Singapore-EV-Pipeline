@@ -12,24 +12,28 @@ resource "hcloud_ssh_key" "developer_2" {
 
 resource "hcloud_server" "dagster" {
   name        = "ev-pipeline-dagster"
-  server_type = "cpx11"
+  server_type = "cpx22"
   image       = "ubuntu-26.04"
-  location    = "hil"
+  location    = "fsn1"
 
   ssh_keys = [hcloud_ssh_key.developer_1.id, hcloud_ssh_key.developer_2.id]
-  
+
   # Cloud-init script to install Docker and run the Dagster deployment
   user_data = <<-EOF
     #cloud-config
+    write_files:
+      - path: /root/ev-pipeline/ev-pipeline-dagster-key.json
+        permissions: "0600"
+        content: |
+          ${indent(10, file(pathexpand(var.dagster_key_path)))}
     runcmd:
+      - mkdir -p /root/ev-pipeline
       - curl -fsSL https://get.docker.com | sh
-      - systemctl enable docker
-      - systemctl start docker
+      - systemctl enable --now docker
       - curl -fsSL https://sdk.cloud.google.com | bash -s -- --disable-prompts --install-dir=/root
-      - /root/google-cloud-sdk/bin/gcloud components install beta --quiet
-      - git clone https://github.com/RyanTang019/Singapore-EV-Pipeline.git /root/ev-pipeline
-      - /root/google-cloud-sdk/bin/gcloud secrets versions access latest --secret=ev-pipeline-env > /root/ev-pipeline/.env
-      - /root/google-cloud-sdk/bin/gcloud secrets versions access latest --secret=ev-pipeline-dagster-key > /root/ev-pipeline/ev-pipeline-dagster-key.json
+      - /root/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file=/root/ev-pipeline/ev-pipeline-dagster-key.json
+      - /root/google-cloud-sdk/bin/gcloud secrets versions access latest --secret=ev-pipeline-env --project=${var.project_id} > /root/ev-pipeline/.env
+      - /root/google-cloud-sdk/bin/gcloud secrets versions access latest --secret=ev-pipeline-compose --project=${var.project_id} > /root/ev-pipeline/docker-compose.yml
       - cd /root/ev-pipeline && docker compose up -d
   EOF
 

@@ -48,3 +48,6 @@ transform/.user.yml
 terraform/terraform.tfvars
 terraform/.terraform
 terraform/tf_plan
+
+#docs
+docs

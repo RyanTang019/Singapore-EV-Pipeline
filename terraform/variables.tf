@@ -47,3 +47,8 @@ variable "ssh_public_key_2" {
   description = "SSH public key for VM access (developer 2)"
   type        = string
 }
+
+variable "dagster_key_path" {
+  description = "Local path to the service account key JSON, read at apply time to bootstrap gcloud on the VM"
+  type        = string
+}

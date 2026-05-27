@@ -62,7 +62,7 @@ terraform apply
 
 ### VM (Hetzner CPX22)
 
-A Hetzner CPX11 VM hosts Dagster and runs ingestion scripts.
+A Hetzner CPX22 VM hosts Dagster and runs ingestion scripts.
 
 ## Roadmap
 
