@@ -15,7 +15,7 @@ run_launcher:
     network: ev_pipeline_network
     container_kwargs:
       volumes:
-        - /root/ev-pipeline/ev-pipeline-dagster-key.json:/opt/dagster/app/ev-pipeline-dagster-key.json    #need to double check path on the VM
+        - /opt/dagster/dagster-sa-key.json:/opt/dagster/app/dagster-sa-key.json
 
 run_coordinator:
   module: dagster.core.run_coordinator
