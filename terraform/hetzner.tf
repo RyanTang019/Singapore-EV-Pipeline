@@ -63,7 +63,7 @@ resource "hcloud_server" "dagster" {
 
     runcmd:
       - mkdir -p /opt/dagster /opt/deploy
-      - chown deploy:deploy /opt/deploy
+      - chown deploy:deploy /opt/deploy /opt/dagster
       - curl -fsSL https://get.docker.com | sh
       - systemctl enable --now docker
       - curl -fsSL https://sdk.cloud.google.com | bash -s -- --disable-prompts --install-dir=/root
