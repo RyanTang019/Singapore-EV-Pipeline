@@ -36,9 +36,9 @@ resource "hcloud_server" "dagster" {
       - default
       - name: deploy
         groups: docker
-        shell: /usr/sbin/nologin
+        shell: /bin/bash
         ssh_authorized_keys:
-          - 'command="/opt/deploy/deploy.sh",no-port-forwarding,no-X11-forwarding,no-agent-forwarding ${var.deploy_ssh_public_key}'
+          - '${var.deploy_ssh_public_key}'
 
     write_files:
       - path: /opt/deploy/deploy.sh
