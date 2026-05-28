@@ -48,7 +48,7 @@ variable "ssh_public_key_2" {
   type        = string
 }
 
-variable "dagster_key_path" {
-  description = "Local path to the service account key JSON, read at apply time to bootstrap gcloud on the VM"
+variable "deploy_ssh_public_key" {
+  description = "SSH public key for CI/CD deploy (GitHub Actions, forced-command restricted)"
   type        = string
 }
