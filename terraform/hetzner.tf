@@ -47,7 +47,7 @@ resource "hcloud_server" "dagster" {
           #!/usr/bin/env bash
           set -euo pipefail
           DIR=/opt/dagster
-          GCLOUD=/root/google-cloud-sdk/bin/gcloud
+          GCLOUD=/opt/google-cloud-sdk/bin/gcloud
 
           [ -f /opt/deploy/docker-compose.yml.new ] && mv /opt/deploy/docker-compose.yml.new $DIR/docker-compose.yml
           [ -f /opt/deploy/dagster-sa-key.json.new ] && mv /opt/deploy/dagster-sa-key.json.new $DIR/dagster-sa-key.json
@@ -63,10 +63,11 @@ resource "hcloud_server" "dagster" {
 
     runcmd:
       - mkdir -p /opt/dagster /opt/deploy
-      - chown deploy:deploy /opt/deploy /opt/dagster
       - curl -fsSL https://get.docker.com | sh
       - systemctl enable --now docker
-      - curl -fsSL https://sdk.cloud.google.com | bash -s -- --disable-prompts --install-dir=/root
+      - usermod -aG docker deploy
+      - chown deploy:deploy /opt/deploy /opt/dagster
+      - curl -fsSL https://sdk.cloud.google.com | bash -s -- --disable-prompts --install-dir=/opt
 
   EOF
 
