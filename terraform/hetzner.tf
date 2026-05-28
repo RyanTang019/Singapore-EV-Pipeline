@@ -51,6 +51,7 @@ resource "hcloud_server" "dagster" {
 
           [ -f /opt/deploy/docker-compose.yml.new ] && mv /opt/deploy/docker-compose.yml.new $DIR/docker-compose.yml
           [ -f /opt/deploy/dagster-sa-key.json.new ] && mv /opt/deploy/dagster-sa-key.json.new $DIR/dagster-sa-key.json
+          [ -f /opt/deploy/.env.deploy.new ] && mv /opt/deploy/.env.deploy.new $DIR/.env.deploy
 
           $GCLOUD auth activate-service-account --key-file=$DIR/dagster-sa-key.json
           $GCLOUD secrets versions access latest --secret=dagster-env --project=${var.project_id} > $DIR/.env

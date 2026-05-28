@@ -80,6 +80,9 @@ jobs:
       - name: Write SA key to temp file
         run: echo '${{ secrets.GCP_SA_KEY }}' > /tmp/dagster-sa-key.json
 
+      - name: Write image tag file
+        run: echo "IMAGE_TAG=sha-${{ github.sha }}" > /tmp/.env.deploy
+
       - name: Copy files to VM
         run: |
           scp -i ~/.ssh/deploy_key \
@@ -88,9 +91,9 @@ jobs:
           scp -i ~/.ssh/deploy_key \
             /tmp/dagster-sa-key.json \
             deploy@${{ secrets.DEPLOY_HOST }}:/opt/deploy/dagster-sa-key.json.new
+          scp -i ~/.ssh/deploy_key \
+            /tmp/.env.deploy \
+            deploy@${{ secrets.DEPLOY_HOST }}:/opt/deploy/.env.deploy.new
 
-      - name: Write image tag and trigger deploy
-        run: |
-          ssh -i ~/.ssh/deploy_key \
-            deploy@${{ secrets.DEPLOY_HOST }} \
-            "echo 'IMAGE_TAG=sha-${{ github.sha }}' > /opt/dagster/.env.deploy"
+      - name: Trigger deploy
+        run: ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} deploy
