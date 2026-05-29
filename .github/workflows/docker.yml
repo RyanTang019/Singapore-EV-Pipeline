@@ -85,7 +85,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts       #grabs the current SSH host key and adds it to list of known hosts
 
       - name: Write SA key to temp file
         run: echo '${{ secrets.GCP_SA_KEY }}' > /tmp/dagster-sa-key.json
