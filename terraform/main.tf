@@ -12,11 +12,11 @@ resource "google_bigquery_dataset" "raw" {
   }
 }
 
-resource "google_bigquery_dataset" "staging" {
-  dataset_id = var.staging_dataset_id
+resource "google_bigquery_dataset" "prod_staging" {
+  dataset_id = var.prod_staging_dataset_id
   location   = var.region
 
-  description = "dbt staging models - cleaned and typed"
+  description = "dbt staging models - cleaned and typed (prod)"
 
   labels = {
     environment = "production"
@@ -24,14 +24,40 @@ resource "google_bigquery_dataset" "staging" {
   }
 }
 
-resource "google_bigquery_dataset" "marts" {
-  dataset_id = var.marts_dataset_id
+resource "google_bigquery_dataset" "prod_marts" {
+  dataset_id = var.prod_marts_dataset_id
   location   = var.region
 
-  description = "dbt mart models - facts and dimensions for Looker Studio"
+  description = "dbt mart models - facts and dimensions for Looker Studio (prod)"
 
   labels = {
     environment = "production"
+    pipeline    = "ev-pipeline"
+  }
+}
+
+# Dev datasets (Option B: dbt dev target writes here; raw is shared with prod)
+
+resource "google_bigquery_dataset" "dev_staging" {
+  dataset_id = "dev_staging"
+  location   = var.region
+
+  description = "dbt staging models - DEV target"
+
+  labels = {
+    environment = "dev"
+    pipeline    = "ev-pipeline"
+  }
+}
+
+resource "google_bigquery_dataset" "dev_marts" {
+  dataset_id = "dev_marts"
+  location   = var.region
+
+  description = "dbt mart models - DEV target"
+
+  labels = {
+    environment = "dev"
     pipeline    = "ev-pipeline"
   }
 }
@@ -45,14 +71,26 @@ resource "google_bigquery_dataset_iam_member" "raw_editor" {
   member     = "serviceAccount:${var.service_account_email}"
 }
 
-resource "google_bigquery_dataset_iam_member" "staging_editor" {
-  dataset_id = google_bigquery_dataset.staging.dataset_id
+resource "google_bigquery_dataset_iam_member" "prod_staging_editor" {
+  dataset_id = google_bigquery_dataset.prod_staging.dataset_id
   role       = "roles/bigquery.dataEditor"
   member     = "serviceAccount:${var.service_account_email}"
 }
 
-resource "google_bigquery_dataset_iam_member" "marts_editor" {
-  dataset_id = google_bigquery_dataset.marts.dataset_id
+resource "google_bigquery_dataset_iam_member" "prod_marts_editor" {
+  dataset_id = google_bigquery_dataset.prod_marts.dataset_id
+  role       = "roles/bigquery.dataEditor"
+  member     = "serviceAccount:${var.service_account_email}"
+}
+
+resource "google_bigquery_dataset_iam_member" "dev_staging_editor" {
+  dataset_id = google_bigquery_dataset.dev_staging.dataset_id
+  role       = "roles/bigquery.dataEditor"
+  member     = "serviceAccount:${var.service_account_email}"
+}
+
+resource "google_bigquery_dataset_iam_member" "dev_marts_editor" {
+  dataset_id = google_bigquery_dataset.dev_marts.dataset_id
   role       = "roles/bigquery.dataEditor"
   member     = "serviceAccount:${var.service_account_email}"
 }

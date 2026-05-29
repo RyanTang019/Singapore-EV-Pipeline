@@ -1,10 +1,23 @@
 transform:
-  target: dev
+  target: dev          # default — safe; prod must be opted into with --target prod
   outputs:
+    # Local dev: authenticates with your personal `gcloud auth` login.
+    # Base schema "dev" + a model's +schema (staging/marts) → dev_staging, dev_marts.
     dev:
       type: bigquery
       method: oauth
       project: "{{ env_var('GCP_PROJECT_ID') }}"
-      dataset: "{{ env_var('DBT_DATASET') }}"
+      dataset: dev
+      location: "{{ env_var('GCP_REGION') }}"
+      threads: 4
+
+    # Production (on the VM): authenticates with the service-account key.
+    # Base schema "prod" + a model's +schema → prod_staging, prod_marts.
+    prod:
+      type: bigquery
+      method: service-account
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS') }}"
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: prod
       location: "{{ env_var('GCP_REGION') }}"
       threads: 4

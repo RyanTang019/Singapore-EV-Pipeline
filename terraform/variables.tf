@@ -15,16 +15,16 @@ variable "raw_dataset_id" {
   default     = "raw"
 }
 
-variable "staging_dataset_id" {
-  description = "BigQuery dataset for dbt staging models"
+variable "prod_staging_dataset_id" {
+  description = "BigQuery dataset for dbt staging models (prod target)"
   type        = string
-  default     = "staging"
+  default     = "prod_staging"
 }
 
-variable "marts_dataset_id" {
-  description = "BigQuery dataset for dbt mart models"
+variable "prod_marts_dataset_id" {
+  description = "BigQuery dataset for dbt mart models (prod target)"
   type        = string
-  default     = "marts"
+  default     = "prod_marts"
 }
 
 variable "service_account_email" {
