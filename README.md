@@ -14,9 +14,9 @@ uv sync
 
 ```
 Singapore-EV-Pipeline/
-  orchestrate/    ← Dagster orchestration (dg CLI config)
-  transform/      ← dbt transformation (BigQuery adapter)
-  terraform/      ← infrastructure as code (BigQuery datasets, IAM)
+  src/orchestrate/  ← Dagster orchestration (assets in defs/)
+  transform/        ← dbt transformation (BigQuery adapter)
+  terraform/        ← infrastructure as code (BigQuery, IAM, Secret Manager, Hetzner VM)
 ```
 
 ### How this was initialised
@@ -43,15 +43,17 @@ uv run dbt run --profiles-dir transform --project-dir transform
 
 ### BigQuery (Terraform)
 
-Three datasets provisioned via Terraform in `asia-southeast1`:
+Datasets provisioned via Terraform in `asia-southeast1`, split by environment (dbt dev/prod targets):
 
-| Dataset     | Purpose                                              |
-| ----------- | ---------------------------------------------------- |
-| `raw`     | Raw ingested data from APIs                          |
-| `staging` | dbt staging models — cleaned and typed              |
-| `marts`   | dbt mart models — analytics-ready for Looker Studio |
+| Dataset          | Purpose                                                     |
+| ---------------- | ----------------------------------------------------------- |
+| `raw`          | Raw ingested data from APIs (shared — env-neutral)          |
+| `prod_staging` | dbt staging models — prod target                            |
+| `prod_marts`   | dbt mart models — prod target (Looker Studio reads these)   |
+| `dev_staging`  | dbt staging models — dev target (local experimentation)     |
+| `dev_marts`    | dbt mart models — dev target                                |
 
-IAM bindings grant the Dagster service account `bigquery.dataEditor` on all three datasets.
+`raw` is shared (dev reads it read-only). dbt's `dev` target is the safe default; production runs use `dbt build --target prod`. IAM bindings grant the Dagster service account `bigquery.dataEditor` on every dataset.
 
 ```bash
 cd terraform
@@ -62,23 +64,28 @@ terraform apply
 
 ### VM (Hetzner CPX22)
 
-A Hetzner CPX22 VM hosts Dagster and runs ingestion scripts.
+A Hetzner CPX22 VM (Falkenstein `fsn1`, static IP) hosts the Dockerised Dagster stack
+(postgres, user_code, webserver, daemon). Provisioned by Terraform; cloud-init bootstraps
+the host (Docker, gcloud, deploy user, `deploy.sh`). Code is shipped as GHCR images via a
+GitHub Actions build + SSH deploy pipeline (no repo clone on the VM).
 
 ## Roadmap
 
 **Infrastructure**
 
-- [X] Provision BigQuery datasets (`raw`, `staging`, `marts`) via Terraform
+- [X] Provision BigQuery datasets via Terraform (`raw` + dev/prod `staging`/`marts`)
 - [X] IAM bindings for Dagster service account
-- [X] Rent Hetzner CPX11 VM for hosting Dagster
-- [X] Set up GitHub Actions to build and push Docker images to GHCR
-- [X] Set up Watchtower for automated deploys on image updates
-- [ ] Install Docker on the VM
-- [ ] Deploy and configure Dagster on the Hetzner VM
-- [ ] Configure service account key on the VM for BigQuery access
-- [ ] Terraform the Hetzner VM provisioning
-- [ ] Add cloud-init script to bootstrap VM automatically on creation
-- [ ] Full automated flow: `terraform apply` → VM created → cloud-init bootstraps → Watchtower deploys
+- [X] dbt dev/prod targets in `profiles.yml` (oauth dev, service-account prod)
+- [X] Rent Hetzner CPX22 VM for hosting Dagster
+- [X] Terraform the Hetzner VM provisioning + static IP
+- [X] cloud-init bootstrap (Docker, gcloud, deploy user, `deploy.sh`)
+- [X] Service account key + runtime secrets via GitHub Secrets / GCP Secret Manager
+- [X] GitHub Actions: build + push SHA-tagged images to GHCR
+- [X] CI/CD SSH deploy pipeline (replaces Watchtower; pinned versions, rollback, audit trail)
+- [X] Dockerised Dagster stack running end-to-end on the VM (code location loads green)
+- [ ] Hetzner firewall: restrict inbound to SSH only
+- [ ] Add collaborator (Oliver) SSH key to the VM
+- [ ] Workload Identity Federation to remove the long-lived SA key from GitHub Secrets
 
 **Ingestion**
 
