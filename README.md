@@ -45,15 +45,16 @@ uv run dbt run --profiles-dir transform --project-dir transform
 
 Datasets provisioned via Terraform in `asia-southeast1`, split by environment (dbt dev/prod targets):
 
-| Dataset          | Purpose                                                     |
-| ---------------- | ----------------------------------------------------------- |
-| `raw`          | Raw ingested data from APIs (shared — env-neutral)          |
-| `prod_staging` | dbt staging models — prod target                            |
-| `prod_marts`   | dbt mart models — prod target (Looker Studio reads these)   |
-| `dev_staging`  | dbt staging models — dev target (local experimentation)     |
-| `dev_marts`    | dbt mart models — dev target                                |
+| Dataset             | Purpose                                                       |
+| ------------------- | ------------------------------------------------------------- |
+| `raw`             | Raw ingested data — **production** (the VM writes here)       |
+| `dev_raw_<handle>` | Per-developer raw ingestion sandbox (e.g. `dev_raw_ryan`)     |
+| `prod_staging`    | dbt staging models — prod target                              |
+| `prod_marts`      | dbt mart models — prod target (Looker Studio reads these)     |
+| `dev_staging`     | dbt staging models — dev target (shared)                      |
+| `dev_marts`       | dbt mart models — dev target (shared)                         |
 
-`raw` is shared (dev reads it read-only). dbt's `dev` target is the safe default; production runs use `dbt build --target prod`. IAM bindings grant the Dagster service account `bigquery.dataEditor` on every dataset.
+dbt's `dev` target is the safe default; production runs use `dbt build --target prod`. IAM bindings grant the Dagster service account `bigquery.dataEditor` on every dataset. The per-developer `dev_raw_*` sandboxes are driven by the `developers` Terraform variable (`for_each`), so adding a person is a one-line change.
 
 ```bash
 cd terraform
@@ -61,6 +62,20 @@ terraform init
 terraform plan
 terraform apply
 ```
+
+### Local development — environment selection
+
+Ingestion writes to whatever dataset `BQ_DATASET_RAW` points at, so the dev/prod split is a single env var. **Always point local ingestion at your personal sandbox — never at production `raw`:**
+
+```bash
+# Each developer uses their own dev_raw_<handle>:
+export BQ_DATASET_RAW=dev_raw_ryan     # (Oliver: dev_raw_oliver)
+export LTA_API_KEY=...                  # your own LTA DataMall key
+uv run dg dev                           # materialize freely — prod is never touched
+```
+
+- **Production** (the VM) sets `BQ_DATASET_RAW=raw` in `docker-compose.yml`; the Dagster schedule runs there. Don't run ingestion locally with `BQ_DATASET_RAW=raw`.
+- **dbt:** local `dbt build` defaults to the `dev` target (writes to `dev_staging`/`dev_marts`); production uses `dbt build --target prod`. The `dev_staging`/`dev_marts` datasets are currently **shared** across developers.
 
 ### VM (Hetzner CPX22)
 
@@ -83,8 +98,7 @@ GitHub Actions build + SSH deploy pipeline (no repo clone on the VM).
 - [X] GitHub Actions: build + push SHA-tagged images to GHCR
 - [X] CI/CD SSH deploy pipeline (replaces Watchtower; pinned versions, rollback, audit trail)
 - [X] Dockerised Dagster stack running end-to-end on the VM (code location loads green)
-- [ ] Hetzner firewall: restrict inbound to SSH only
-- [ ] Add collaborator (Oliver) SSH key to the VM
+- [X] Hetzner firewall: restrict inbound to SSH only
 - [ ] Workload Identity Federation to remove the long-lived SA key from GitHub Secrets
 
 **Ingestion**

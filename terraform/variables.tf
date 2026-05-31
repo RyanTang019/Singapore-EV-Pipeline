@@ -27,6 +27,12 @@ variable "prod_marts_dataset_id" {
   default     = "prod_marts"
 }
 
+variable "developers" {
+  description = "Developer handles — each gets a personal dev_raw_<handle> ingestion sandbox"
+  type        = list(string)
+  default     = ["ryan", "oliver"]
+}
+
 variable "service_account_email" {
   description = "Email of the Dagster service account"
   type        = string
