@@ -99,26 +99,35 @@ GitHub Actions build + SSH deploy pipeline (no repo clone on the VM).
 - [X] CI/CD SSH deploy pipeline (replaces Watchtower; pinned versions, rollback, audit trail)
 - [X] Dockerised Dagster stack running end-to-end on the VM (code location loads green)
 - [X] Hetzner firewall: restrict inbound to SSH only
+- [X] Per-developer `dev_raw_<handle>` ingestion sandboxes (for_each over `developers`)
+- [X] Verify LTA EV data source against the live API (endpoint, shape, availability)
 - [ ] Workload Identity Federation to remove the long-lived SA key from GitHub Secrets
 
-**Ingestion**
+**Ingestion** (Phase 1 = EV charger availability)
 
-- [ ] Write Python ingestion scripts for LTA EV charging point API
-- [ ] Load raw data into BigQuery `raw` dataset via the BigQuery SDK
-- [ ] Add additional sources (SingStat population, COE prices, weather)
-- [ ] Implement incremental loads
+> **Next up — Phase 1: first ingestion asset.** Build EV charger availability end-to-end
+> (LTA `EVCBatch` → `raw.ev_charger_availability`), then a schedule, then the first dbt
+> staging model. Once one asset works, the other sources follow the same pattern.
+
+- [ ] BigQuery resource + `ev_charger_availability` asset in `src/orchestrate/defs/`
+  - [ ] 2-step fetch: `EVCBatch` → temporary S3 link → download snapshot (handle 5-min expiry)
+  - [ ] Land **grain B**: one row per location, `chargingPoints` as JSON + `ingested_at` + `last_updated_time`
+  - [ ] Write to `{BQ_DATASET_RAW}.ev_charger_availability` (`WRITE_APPEND`)
+- [ ] Test locally against `dev_raw_<handle>`, then deploy and materialize in prod
+- [ ] Dagster schedule (~5–15 min, matching the API refresh)
+- [ ] Add remaining sources (traffic, carpark, transit, demographics, vehicle pop, HDB)
 
 **Transformation**
 
-- [ ] Build dbt staging models to clean and type the raw data
-- [ ] Build dbt mart models — fact and dimension tables for analytics
-- [ ] Add dbt tests (not null, uniqueness, referential integrity)
+- [ ] dbt staging model: unnest `raw` JSON → connector-grain `stg_ev_charger`
+- [ ] dbt mart models — fact and dimension tables (star schema on `location_id`)
+- [ ] dbt tests (not null, uniqueness, referential integrity)
 
 **Orchestration**
 
-- [ ] Schedule ingestion jobs via Dagster
-- [ ] Implement Dagster Software-Defined Assets
-- [ ] Add Dagster sensors for event-driven triggering
+- [ ] Wire dbt as `@dbt_assets` in Dagster (runs `--target prod` on the VM)
+- [ ] Schedule the end-to-end pipeline (ingest → dbt)
+- [ ] Add sensors / freshness checks as needed
 
 **Observability & Delivery**
 
