@@ -15,6 +15,7 @@ services:
       interval: 10s
       timeout: 8s
       retries: 5
+    restart: unless-stopped
 
   user_code:
     image: ghcr.io/ryantang019/singapore-ev-pipeline/user-code:${IMAGE_TAG:-latest}
