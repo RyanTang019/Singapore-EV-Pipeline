@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+
+exec uv run --env-file .env dbt "$@" --profiles-dir transform --project-dir transform
