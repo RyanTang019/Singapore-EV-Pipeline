@@ -20,7 +20,7 @@ services:
   user_code:
     image: ghcr.io/ryantang019/singapore-ev-pipeline/user-code:${IMAGE_TAG:-latest}
     container_name: ev_pipeline_user_code
-    restart: always
+    restart: unless-stopped
     environment:
       DAGSTER_POSTGRES_USER: "dagster_user"
       DAGSTER_POSTGRES_PASSWORD: "dagster_password"
@@ -48,6 +48,7 @@ services:
       - -w
       - workspace.yaml
     container_name: ev_pipeline_webserver
+    restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
     environment:
@@ -71,7 +72,7 @@ services:
       - dagster-daemon
       - run
     container_name: ev_pipeline_daemon
-    restart: on-failure
+    restart: unless-stopped
     environment:
       DAGSTER_POSTGRES_USER: "dagster_user"
       DAGSTER_POSTGRES_PASSWORD: "dagster_password"
