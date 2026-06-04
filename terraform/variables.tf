@@ -1,5 +1,10 @@
 variable "project_id" {
-  description = "GCP project ID"
+  description = "GCP project ID (production)"
+  type        = string
+}
+
+variable "dev_project_id" {
+  description = "GCP project ID (dev)"
   type        = string
 }
 
@@ -10,9 +15,9 @@ variable "region" {
 }
 
 variable "raw_dataset_id" {
-  description = "BigQuery dataset for raw ingested data"
+  description = "BigQuery dataset for raw ingested data (prod)"
   type        = string
-  default     = "raw"
+  default     = "prod_raw"
 }
 
 variable "prod_staging_dataset_id" {

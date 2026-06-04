@@ -23,6 +23,12 @@ provider "google" {
   region  = var.region
 }
 
+provider "google" {
+  alias   = "dev"
+  project = var.dev_project_id
+  region  = var.region
+}
+
 provider "hcloud" {
   token = var.hcloud_token
 }
