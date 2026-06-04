@@ -2,12 +2,12 @@ transform:
   target: dev          # default — safe; prod must be opted into with --target prod
   outputs:
     # Local dev: authenticates with your personal `gcloud auth` login.
-    # Base schema "dev" + a model's +schema (staging/marts) → dev_staging, dev_marts.
+    # DEV_SCHEMA_PREFIX (e.g. dev_oliver) + _staging/_marts → dev_oliver_staging, dev_oliver_marts.
     dev:
       type: bigquery
       method: oauth
       project: "{{ env_var('GCP_PROJECT_ID') }}"
-      dataset: dev
+      dataset: "{{ env_var('DEV_SCHEMA_PREFIX') }}"
       location: "{{ env_var('GCP_REGION') }}"
       threads: 4
 
