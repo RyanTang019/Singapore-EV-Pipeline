@@ -1,0 +1,103 @@
+{
+  "LastUpdatedTime": "2026-06-02 15:25:00",
+  "evLocationsData": [
+    {
+      "address": "1 Normal Road",
+      "name": "Normal Carpark",
+      "longtitude": 103.959758,
+      "latitude": 1.362839,
+      "postalCode": "123456",
+      "chargingPoints": [
+        {
+          "status": "1",
+          "operatingHours": "24/7",
+          "operator": "OperatorA",
+          "position": "L1",
+          "name": "CP1",
+          "plugTypes": [
+            {
+              "plugType": "Type 2",
+              "price": "0.50",
+              "current": "AC",
+              "powerRating": "7.4",
+              "priceType": "kWh",
+              "evIds": [
+                {"evCpId": "A1", "status": "1"},
+                {"evCpId": "A2", "status": "0"}
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "address": "2 Maintenance Ave",
+      "name": "Out Of Service Carpark",
+      "longtitude": 103.851959,
+      "latitude": 1.290270,
+      "postalCode": "654321",
+      "chargingPoints": [
+        {
+          "status": "100",
+          "operatingHours": "24/7",
+          "operator": "OperatorB",
+          "position": "L2",
+          "name": "CP2",
+          "plugTypes": [
+            {
+              "plugType": "Combo 2",
+              "price": "0.60",
+              "current": "DC",
+              "powerRating": "50",
+              "priceType": "kWh",
+              "evIds": [{"evCpId": "B1", "status": ""}]
+            }
+          ]
+        },
+        {
+          "status": "0",
+          "operatingHours": "24/7",
+          "operator": "OperatorB",
+          "position": "L3",
+          "name": "CP3",
+          "plugTypes": [
+            {
+              "plugType": "CHAdeMO",
+              "price": "0.60",
+              "current": "DC",
+              "powerRating": "50",
+              "priceType": "kWh",
+              "evIds": [{"evCpId": "B2", "status": "1"}]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "address": "3 Empty Lane",
+      "name": "Empty Connector Carpark",
+      "longtitude": 103.800000,
+      "latitude": 1.300000,
+      "postalCode": "111222",
+      "chargingPoints": [
+        {
+          "status": "1",
+          "operatingHours": "24/7",
+          "operator": "OperatorC",
+          "position": "L4",
+          "name": "CP4",
+          "plugTypes": [
+            {
+              "plugType": "Type 2",
+              "price": "0.50",
+              "current": "AC",
+              "powerRating": "7.4",
+              "priceType": "kWh",
+              "evIds": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

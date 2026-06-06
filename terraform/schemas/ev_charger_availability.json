@@ -1,0 +1,10 @@
+[
+  {"name": "address",           "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "name",              "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "postal_code",       "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "latitude",          "type": "FLOAT",     "mode": "NULLABLE"},
+  {"name": "longitude",         "type": "FLOAT",     "mode": "NULLABLE"},
+  {"name": "charging_points",   "type": "JSON",      "mode": "NULLABLE"},
+  {"name": "last_updated_time", "type": "TIMESTAMP", "mode": "NULLABLE"},
+  {"name": "ingested_at",       "type": "TIMESTAMP", "mode": "REQUIRED"}
+]

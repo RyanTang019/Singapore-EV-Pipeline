@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+# Local-dev Dagster: a SQLite-backed, in-process instance, fully separate from the
+# VM's Postgres + DockerRunLauncher config in ./dagster.yaml (which needs the
+# DAGSTER_POSTGRES_* env vars + Docker network that only exist on the VM).
+#
+# Setting DAGSTER_HOME to a repo-local dir makes `dg dev` read THAT instance config
+# (an empty dagster.yaml -> all defaults) instead of the prod ./dagster.yaml.
+# Run from the repo root, like bin/dbt:  ./bin/dg-dev
+set -e
+
+REPO_ROOT="$(CDPATH= cd "$(dirname "$0")/.." && pwd)"
+export DAGSTER_HOME="$REPO_ROOT/.dagster_home_dev"
+mkdir -p "$DAGSTER_HOME"
+# Empty instance config => SQLite storage, in-process runs (silences the warning).
+[ -f "$DAGSTER_HOME/dagster.yaml" ] || : > "$DAGSTER_HOME/dagster.yaml"
+
+exec uv run --env-file .env dg dev "$@"
