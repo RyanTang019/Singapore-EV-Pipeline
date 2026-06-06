@@ -1,19 +1,20 @@
 # Dev BigQuery datasets — provisioned in sg-pipeline-dev
-# Each developer gets their own datasets prefixed with their handle (DEV_SCHEMA_PREFIX).
-# Adding a new developer = add their handle to var.developers.
+# Raw is a single SHARED landing zone; staging/marts are per-developer (DEV_SCHEMA_PREFIX).
+# Adding a new developer = add their handle to var.developers (gets staging + marts).
 
+# Shared dev raw landing zone — ALL developers ingest here (replaces per-dev raw).
+# Both dev_<handle>_staging layers read from this single dataset.
 resource "google_bigquery_dataset" "dev_raw" {
-  for_each = toset(var.developers)
   provider = google.dev
 
-  dataset_id  = "dev_${each.key}_raw"
+  dataset_id  = "dev_raw"
   location    = var.region
-  description = "Raw ingestion sandbox — ${each.key}"
+  description = "Shared dev raw landing zone — all developers ingest here"
 
   labels = {
     environment = "dev"
     pipeline    = "ev-pipeline"
-    developer   = each.key
+    shared      = "true"
   }
 }
 

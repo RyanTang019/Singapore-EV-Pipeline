@@ -33,7 +33,7 @@ variable "prod_marts_dataset_id" {
 }
 
 variable "developers" {
-  description = "Developer handles — each gets a personal dev_raw_<handle> ingestion sandbox"
+  description = "Developer handles — each gets dev_<handle>_staging and _marts (raw is shared: dev_raw)"
   type        = list(string)
   default     = ["ryan", "oliver"]
 }

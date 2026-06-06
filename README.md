@@ -45,14 +45,14 @@ uv run dbt run --profiles-dir transform --project-dir transform
 
 Datasets provisioned via Terraform in `asia-southeast1`, split by environment (dbt dev/prod targets):
 
-| Dataset             | Purpose                                                       |
-| ------------------- | ------------------------------------------------------------- |
-| `raw`             | Raw ingested data — **production** (the VM writes here)       |
-| `dev_raw_<handle>` | Per-developer raw ingestion sandbox (e.g. `dev_raw_ryan`)     |
-| `prod_staging`    | dbt staging models — prod target                              |
-| `prod_marts`      | dbt mart models — prod target (Looker Studio reads these)     |
-| `dev_staging`     | dbt staging models — dev target (shared)                      |
-| `dev_marts`       | dbt mart models — dev target (shared)                         |
+| Dataset              | Purpose                                                       |
+| -------------------- | ------------------------------------------------------------- |
+| `raw`              | Raw ingested data —**production** (the VM writes here) |
+| `dev_raw_<handle>` | Per-developer raw ingestion sandbox (e.g.`dev_raw_ryan`)    |
+| `prod_staging`     | dbt staging models — prod target                             |
+| `prod_marts`       | dbt mart models — prod target (Looker Studio reads these)    |
+| `dev_staging`      | dbt staging models — dev target (shared)                     |
+| `dev_marts`        | dbt mart models — dev target (shared)                        |
 
 dbt's `dev` target is the safe default; production runs use `dbt build --target prod`. IAM bindings grant the Dagster service account `bigquery.dataEditor` on every dataset. The per-developer `dev_raw_*` sandboxes are driven by the `developers` Terraform variable (`for_each`), so adding a person is a one-line change.
 
@@ -99,7 +99,7 @@ GitHub Actions build + SSH deploy pipeline (no repo clone on the VM).
 - [X] CI/CD SSH deploy pipeline (replaces Watchtower; pinned versions, rollback, audit trail)
 - [X] Dockerised Dagster stack running end-to-end on the VM (code location loads green)
 - [X] Hetzner firewall: restrict inbound to SSH only
-- [X] Per-developer `dev_raw_<handle>` ingestion sandboxes (for_each over `developers`)
+- [X] Shared landing zone for both develops (dev_raw)
 - [X] Verify LTA EV data source against the live API (endpoint, shape, availability)
 - [ ] Workload Identity Federation to remove the long-lived SA key from GitHub Secrets
 
