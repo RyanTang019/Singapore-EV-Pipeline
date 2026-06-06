@@ -50,6 +50,7 @@ terraform/.terraform
 terraform/tf_plan
 
 #docs
-docs
+docs/
+
 
 scratch
