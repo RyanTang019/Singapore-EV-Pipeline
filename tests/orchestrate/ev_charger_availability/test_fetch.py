@@ -54,3 +54,14 @@ def test_step1_failure_raises_without_retry():
         with pytest.raises(requests.HTTPError):
             fetch_snapshot("MYKEY")
     assert g.call_count == 1  # no blind retry against a bad key
+
+
+@pytest.mark.parametrize("empty", [{}, []])
+def test_empty_payload_raises(empty):
+    # Envelope guard (Option A): a parseable-but-empty download must NOT land on the
+    # append-only table. HTTP + JSON validity come free; this is the non-empty check.
+    link = _resp({"value": [{"Link": "https://s3.example/snap"}]})
+    snap = _resp(empty)
+    with patch(GET, side_effect=[link, snap]):
+        with pytest.raises(ValueError):
+            fetch_snapshot("MYKEY")

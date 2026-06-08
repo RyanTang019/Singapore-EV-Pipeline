@@ -13,14 +13,22 @@ TIMEOUT_SECONDS = 30
 
 
 def fetch_snapshot(api_key: str) -> dict:
-    """Return the raw EVCBatch snapshot dict (`{LastUpdatedTime, evLocationsData}`)."""
+    """Return the raw EVCBatch snapshot dict (`{LastUpdatedTime, evLocationsData}`).
+
+    Envelope-validated only (Option A): `raise_for_status()` covers HTTP, `.json()`
+    covers parse-ability, and the non-empty check below refuses to return a
+    parseable-but-empty payload (`{}`/`[]`) — so an empty blob never lands on the
+    append-only raw table. No field/schema inspection happens here; that is dbt's job.
+    """
     link = _request_link(api_key)
     try:
-        return _download(link)
+        snapshot = _download(link)
     except requests.RequestException:
         # Expired link is expected; get a fresh one and retry the download once.
-        link = _request_link(api_key)
-        return _download(link)
+        snapshot = _download(_request_link(api_key))
+    if not snapshot:
+        raise ValueError("EVCBatch returned an empty payload — refusing to land")
+    return snapshot
 
 
 def _request_link(api_key: str) -> str:

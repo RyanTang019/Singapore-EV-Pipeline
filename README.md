@@ -29,32 +29,43 @@ uvx --with dbt-bigquery dbt init transform --skip-profile-setup
 
 ## Running Dagster
 
+Use the local wrapper (a SQLite Dagster instance that bypasses the VM-only `dagster.yaml`):
+
 ```bash
-uv run dg dev
+./bin/dg-dev
 ```
+
+> Don't run bare `uv run dg dev` locally — it loads the VM-only `dagster.yaml` (Postgres +
+> DockerRunLauncher) and crashes on missing `DAGSTER_POSTGRES_*` vars.
 
 ## Running dbt
 
 ```bash
-uv run dbt run --profiles-dir transform --project-dir transform
+./bin/dbt run      # wrapper: applies --profiles-dir/--project-dir transform + .env
 ```
 
 ## Infrastructure
 
 ### BigQuery (Terraform)
 
-Datasets provisioned via Terraform in `asia-southeast1`, split by environment (dbt dev/prod targets):
+Datasets are provisioned via Terraform in `asia-southeast1`, split across two GCP projects
+(prod `project-f78a2754…`, dev `sg-pipeline-dev`):
 
-| Dataset              | Purpose                                                       |
-| -------------------- | ------------------------------------------------------------- |
-| `raw`              | Raw ingested data —**production** (the VM writes here) |
-| `dev_raw_<handle>` | Per-developer raw ingestion sandbox (e.g.`dev_raw_ryan`)    |
-| `prod_staging`     | dbt staging models — prod target                             |
-| `prod_marts`       | dbt mart models — prod target (Looker Studio reads these)    |
-| `dev_staging`      | dbt staging models — dev target (shared)                     |
-| `dev_marts`        | dbt mart models — dev target (shared)                        |
+| Dataset                  | Purpose                                                              |
+| ------------------------ | ------------------------------------------------------------------- |
+| `prod_raw`               | Raw ingested data — **production** (the VM writes here)              |
+| `dev_raw`                | **Shared** raw ingestion landing zone — all developers write here   |
+| `prod_staging`           | dbt staging models — prod target                                    |
+| `prod_marts`             | dbt mart models — prod target (Looker Studio reads these)           |
+| `dev_<handle>_staging`   | dbt staging models — per-developer dev target (e.g. `dev_ryan_staging`) |
+| `dev_<handle>_marts`     | dbt mart models — per-developer dev target                          |
 
-dbt's `dev` target is the safe default; production runs use `dbt build --target prod`. IAM bindings grant the Dagster service account `bigquery.dataEditor` on every dataset. The per-developer `dev_raw_*` sandboxes are driven by the `developers` Terraform variable (`for_each`), so adding a person is a one-line change.
+dbt's `dev` target is the safe default; production runs use `./bin/dbt build --target prod`. IAM
+grants the Dagster service account `bigquery.dataEditor` on every dataset.
+
+> **Raw tables are code-owned, not Terraform-managed.** Terraform provisions the *datasets* and
+> IAM; the ingestion loader creates each raw *table* on first run (`CREATE_IF_NEEDED` against a
+> Python schema). This keeps raw resilient to source schema changes — see "Ingestion" below.
 
 ```bash
 cd terraform
@@ -65,17 +76,24 @@ terraform apply
 
 ### Local development — environment selection
 
-Ingestion writes to whatever dataset `BQ_DATASET_RAW` points at, so the dev/prod split is a single env var. **Always point local ingestion at your personal sandbox — never at production `raw`:**
+Ingestion writes to whatever dataset `BQ_DATASET_RAW` points at, so the dev/prod split is a single
+env var. **Always point local ingestion at the shared dev landing zone — never at production
+`prod_raw`:**
 
 ```bash
-# Each developer uses their own dev_raw_<handle>:
-export BQ_DATASET_RAW=dev_raw_ryan     # (Oliver: dev_raw_oliver)
-export LTA_API_KEY=...                  # your own LTA DataMall key
-uv run dg dev                           # materialize freely — prod is never touched
+# .env (local dev) — authenticate to BigQuery via ADC, not a key file:
+GCP_PROJECT_ID=sg-pipeline-dev
+BQ_DATASET_RAW=dev_raw          # shared landing zone (all devs write here)
+DEV_SCHEMA_PREFIX=dev_<handle>  # your private staging/marts (dbt appends _staging/_marts)
+LTA_API_KEY=...                 # your own LTA DataMall key
+# then: gcloud auth application-default login   (ADC; do NOT set GOOGLE_APPLICATION_CREDENTIALS)
+./bin/dg-dev                    # materialize freely — prod is never touched
 ```
 
-- **Production** (the VM) sets `BQ_DATASET_RAW=raw` in `docker-compose.yml`; the Dagster schedule runs there. Don't run ingestion locally with `BQ_DATASET_RAW=raw`.
-- **dbt:** local `dbt build` defaults to the `dev` target (writes to `dev_staging`/`dev_marts`); production uses `dbt build --target prod`. The `dev_staging`/`dev_marts` datasets are currently **shared** across developers.
+- **Production** (the VM) sets `GCP_PROJECT_ID` to the prod project + `BQ_DATASET_RAW=prod_raw` from
+  Secret Manager; the Dagster schedule runs there. Don't run ingestion locally against `prod_raw`.
+- **dbt:** local `./bin/dbt build` defaults to the `dev` target (writes to your
+  `dev_<handle>_staging`/`_marts`); production uses `./bin/dbt build --target prod`.
 
 ### VM (Hetzner CPX22)
 
@@ -88,7 +106,7 @@ GitHub Actions build + SSH deploy pipeline (no repo clone on the VM).
 
 **Infrastructure**
 
-- [X] Provision BigQuery datasets via Terraform (`raw` + dev/prod `staging`/`marts`)
+- [X] Provision BigQuery datasets via Terraform (`prod_raw` + shared `dev_raw` + dev/prod `staging`/`marts`)
 - [X] IAM bindings for Dagster service account
 - [X] dbt dev/prod targets in `profiles.yml` (oauth dev, service-account prod)
 - [X] Rent Hetzner CPX22 VM for hosting Dagster
@@ -99,27 +117,31 @@ GitHub Actions build + SSH deploy pipeline (no repo clone on the VM).
 - [X] CI/CD SSH deploy pipeline (replaces Watchtower; pinned versions, rollback, audit trail)
 - [X] Dockerised Dagster stack running end-to-end on the VM (code location loads green)
 - [X] Hetzner firewall: restrict inbound to SSH only
-- [X] Shared landing zone for both develops (dev_raw)
+- [X] Shared landing zone for both developers (`dev_raw`)
 - [X] Verify LTA EV data source against the live API (endpoint, shape, availability)
 - [ ] Workload Identity Federation to remove the long-lived SA key from GitHub Secrets
 
-**Ingestion** (Phase 1 = EV charger availability)
+**Ingestion** — opaque raw landing (ELT)
 
-> **Next up — Phase 1: first ingestion asset.** Build EV charger availability end-to-end
-> (LTA `EVCBatch` → `raw.ev_charger_availability`), then a schedule, then the first dbt
-> staging model. Once one asset works, the other sources follow the same pattern.
+Every source lands the **whole untouched API response** as one row
+`{batch_id, source_name, ingested_at, payload(JSON)}`; all unnesting/exploding happens in dbt
+(in-warehouse), never on the VM. Preserving the original payload means a source schema change can
+never lose data on this append-only feed. See `docs/superpowers/specs/2026-06-08-opaque-raw-landing-design.md`.
 
-- [ ] BigQuery resource + `ev_charger_availability` asset in `src/orchestrate/defs/`
-  - [ ] 2-step fetch: `EVCBatch` → temporary S3 link → download snapshot (handle 5-min expiry)
-  - [ ] Land **grain B**: one row per location, `chargingPoints` as JSON + `ingested_at` + `last_updated_time`
-  - [ ] Write to `{BQ_DATASET_RAW}.ev_charger_availability` (`WRITE_APPEND`)
-- [ ] Test locally against `dev_raw_<handle>`, then deploy and materialize in prod
+- [X] `ev_charger_availability` asset — `EVCBatch` → 2-step S3 link (5-min expiry, retry-once) →
+  envelope guard → one opaque `payload` row → `{BQ_DATASET_RAW}.ev_charger_availability` (`WRITE_APPEND`)
+  - [X] Loader creates the table via `CREATE_IF_NEEDED` from a code-owned `RAW_SCHEMA` (no Terraform)
+  - [X] Verified live against `dev_raw` (1 row, 2,688 locations queryable via `JSON_QUERY_ARRAY`)
+- [ ] TrafficSpeedBands → CarParkAvailability, deliberately per-source on the uniform load
+  (`docs/superpowers/specs/2026-06-08-per-source-ingestion-traffic-carpark-design.md`)
+- [ ] Config-driven ingestion engine: extract `load_raw` + extractor drivers + asset factory +
+  manifest from the 3 concrete sources
 - [ ] Dagster schedule (~5–15 min, matching the API refresh)
-- [ ] Add remaining sources (traffic, carpark, transit, demographics, vehicle pop, HDB)
+- [ ] Add remaining sources (transit, demographics, vehicle pop, HDB)
 
 **Transformation**
 
-- [ ] dbt staging model: unnest `raw` JSON → connector-grain `stg_ev_charger`
+- [ ] dbt staging model: explode `payload` JSON (`JSON_QUERY_ARRAY(payload, '$.evLocationsData')`) → connector-grain `stg_ev_charger`
 - [ ] dbt mart models — fact and dimension tables (star schema on `location_id`)
 - [ ] dbt tests (not null, uniqueness, referential integrity)
 
