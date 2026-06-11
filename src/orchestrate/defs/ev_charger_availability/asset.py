@@ -11,7 +11,14 @@ switch.
 import os
 from datetime import datetime, timezone
 
-from dagster import AssetExecutionContext, MaterializeResult, MetadataValue, asset
+from dagster import (
+    AssetExecutionContext,
+    Backoff,
+    MaterializeResult,
+    MetadataValue,
+    RetryPolicy,
+    asset,
+)
 from google.cloud import bigquery
 
 from .fetch import fetch_snapshot
@@ -32,6 +39,11 @@ RAW_SCHEMA = [
     name=SOURCE_NAME,
     group_name="ingestion",
     description="LTA EVCBatch snapshot landed opaquely (whole payload) into raw.",
+    # EVCBatch is unrecoverable (5-min S3 expiry, no history endpoint), so a transient
+    # DNS/connection blip on a scheduled tick would lose that snapshot permanently. Ride
+    # it out within the run: 3 retries, exponential backoff (10s -> 20s -> 40s). Dagster
+    # does NOT back-fill missed cron boundaries, so in-run retry is the only safety net.
+    retry_policy=RetryPolicy(max_retries=3, delay=10, backoff=Backoff.EXPONENTIAL),
 )
 def ev_charger_availability(context: AssetExecutionContext) -> MaterializeResult:
     api_key = os.environ["LTA_API_KEY"]

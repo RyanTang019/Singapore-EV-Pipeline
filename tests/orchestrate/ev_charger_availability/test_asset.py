@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import orchestrate
-from dagster import load_from_defs_folder, materialize
+from dagster import Backoff, load_from_defs_folder, materialize
 
 ASSET_MOD = "orchestrate.defs.ev_charger_availability.asset"
 
@@ -54,6 +54,19 @@ def test_asset_lands_one_opaque_row(monkeypatch):
         "payload": "JSON",
     }
     client.load_table_from_json.return_value.result.assert_called_once()
+
+
+def test_asset_retries_on_transient_failure():
+    # EVCBatch is unrecoverable (5-min S3 expiry, no history endpoint), so a transient
+    # network/DNS blip on a scheduled tick loses that snapshot forever. The asset carries
+    # a RetryPolicy to ride out the blip within the same run.
+    from orchestrate.defs.ev_charger_availability.asset import ev_charger_availability
+
+    policy = ev_charger_availability.op.retry_policy
+    assert policy is not None
+    assert policy.max_retries == 3
+    assert policy.delay == 10
+    assert policy.backoff == Backoff.EXPONENTIAL
 
 
 def test_asset_is_discovered_by_defs_folder():
