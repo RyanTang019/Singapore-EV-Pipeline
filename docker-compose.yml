@@ -78,6 +78,17 @@ services:
       DAGSTER_POSTGRES_PASSWORD: "dagster_password"
       DAGSTER_POSTGRES_DB: "dagster_db"
       DAGSTER_POSTGRES_HOST: "ev_pipeline_postgresql"
+      # The DockerRunLauncher forwards these (by name) from the DAEMON's env into each
+      # spawned run container (dagster.yaml run_launcher.env_vars). They must therefore
+      # exist HERE on the daemon, not only on user_code — otherwise launch fails with
+      # "Tried to load environment variable GOOGLE_APPLICATION_CREDENTIALS, but it was
+      # not set". The SA key file itself is mounted into the run container by
+      # dagster.yaml's container_kwargs.volumes; the daemon only needs the path string.
+      GOOGLE_APPLICATION_CREDENTIALS: "/opt/dagster/app/dagster-sa-key.json"
+      GCP_PROJECT_ID: "project-f78a2754-498a-4582-af0"
+      GCP_REGION: "asia-southeast1"
+      BQ_DATASET_RAW: "${BQ_DATASET_RAW:-prod_raw}"
+      LTA_API_KEY: "${LTA_API_KEY}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
