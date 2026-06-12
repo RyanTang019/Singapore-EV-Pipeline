@@ -167,4 +167,3 @@ never lose data on this append-only feed. See `docs/superpowers/specs/2026-06-08
 - [dbt-bigquery](https://docs.getdbt.com/docs/core/connect-data-platform/bigquery-setup) — BigQuery adapter
 - [BigQuery](https://cloud.google.com/bigquery/docs) — data warehouse
 
-h
