@@ -57,3 +57,4 @@ scratch
 # Local Dagster dev instance (SQLite, created by bin/dg-dev)
 .dagster_home_dev/
 .tmp_dagster_home_*/
+.agents
