@@ -5,7 +5,20 @@ on:
     branches: [main]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run pytest
+        run: uv run --group dev pytest
+
   build-dagster:
+    needs: [test]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,6 +53,7 @@ jobs:
           cache-to: type=registry,ref=ghcr.io/${{ env.REPO_LOWER }}/dagster:buildcache,mode=max
 
   build-user-code:
+    needs: [test]
     runs-on: ubuntu-latest
     permissions:
       contents: read
