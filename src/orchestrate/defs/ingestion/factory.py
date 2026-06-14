@@ -17,7 +17,6 @@ from dagster import (
     define_asset_job,
 )
 
-from .extractors import json_path_array
 from .landing import load_raw
 from .manifest import MANIFEST, STANDARD_RETRY, SourceConfig
 
@@ -45,7 +44,7 @@ def build_ingestion_asset(cfg: SourceConfig) -> AssetsDefinition:
                 "source_name": MetadataValue.text(cfg.name),
                 "table": MetadataValue.text(table_id),
                 # display-only freshness/size signal; not persisted as a column
-                "payload_records": len(json_path_array(payload, cfg.records_path)),
+                "payload_records": len(payload.get(cfg.records_key, [])),
             }
         )
 

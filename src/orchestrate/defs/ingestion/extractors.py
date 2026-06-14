@@ -13,21 +13,6 @@ import requests
 TIMEOUT_SECONDS = 30
 
 
-def json_path_array(payload: dict, records_path: str) -> list:
-    """Return the records array at a simple `$.<key>` path (the only shape our sources use).
-
-    Mirrors the dbt JSON_QUERY_ARRAY(payload, records_path) navigation so the manifest is
-    the single place that names where records live. Raises on anything fancier than one
-    top-level key — we deliberately don't ship a general JSONPath engine (YAGNI).
-    """
-    if not records_path.startswith("$."):
-        raise ValueError(f"unsupported records_path {records_path!r} (expected '$.<key>')")
-    key = records_path[2:]
-    if "." in key or "[" in key:
-        raise ValueError(f"unsupported nested records_path {records_path!r}")
-    return payload.get(key, [])
-
-
 class Extractor(Protocol):
     def extract(self, api_key: str) -> dict: ...
 

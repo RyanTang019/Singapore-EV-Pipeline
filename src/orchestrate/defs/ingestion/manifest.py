@@ -32,22 +32,22 @@ DEFAULT_CRON = "*/30 * * * *"
 class SourceConfig:
     name: str  # source_name AND raw table name AND dagster asset name
     extractor: Extractor  # how to fetch
-    records_path: str  # JSON path to records array (count metadata + dbt parity)
+    records_key: str  # top-level key of the records array (count metadata + dbt parity)
     cron: str = DEFAULT_CRON  # schedule cadence; edit per source if needed
 
 
 MANIFEST = [
     SourceConfig(
-        "ev_charger_availability", S3LinkExtractor(EVCBATCH_URL), "$.evLocationsData"
+        "ev_charger_availability", S3LinkExtractor(EVCBATCH_URL), "evLocationsData"
     ),
     SourceConfig(
         "traffic_speed_bands",
         ODataPagedExtractor(TRAFFIC_SPEED_BANDS_URL),
-        "$.value",
+        "value",
     ),
     SourceConfig(
         "carpark_availability",
         ODataPagedExtractor(CARPARK_AVAILABILITY_URL),
-        "$.value",
+        "value",
     ),
 ]

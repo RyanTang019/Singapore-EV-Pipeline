@@ -1,30 +1,5 @@
 import pytest
 
-from orchestrate.defs.ingestion.extractors import json_path_array
-
-
-def test_json_path_array_returns_top_level_key():
-    assert json_path_array({"value": [1, 2, 3]}, "$.value") == [1, 2, 3]
-
-
-def test_json_path_array_other_key():
-    assert json_path_array({"evLocationsData": [{"a": 1}]}, "$.evLocationsData") == [{"a": 1}]
-
-
-def test_json_path_array_missing_key_is_empty():
-    assert json_path_array({}, "$.value") == []
-
-
-def test_json_path_array_rejects_non_dollar_path():
-    with pytest.raises(ValueError):
-        json_path_array({"value": []}, "value")
-
-
-def test_json_path_array_rejects_nested_path():
-    with pytest.raises(ValueError):
-        json_path_array({"a": {"b": []}}, "$.a.b")
-
-
 from unittest.mock import MagicMock, patch
 
 from orchestrate.defs.ingestion.extractors import ODataPagedExtractor

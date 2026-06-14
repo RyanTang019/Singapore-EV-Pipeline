@@ -17,11 +17,11 @@ def test_manifest_has_three_sources_with_unchanged_names():
     }
 
 
-def test_manifest_records_paths():
+def test_manifest_records_keys():
     by_name = {c.name: c for c in MANIFEST}
-    assert by_name["ev_charger_availability"].records_path == "$.evLocationsData"
-    assert by_name["traffic_speed_bands"].records_path == "$.value"
-    assert by_name["carpark_availability"].records_path == "$.value"
+    assert by_name["ev_charger_availability"].records_key == "evLocationsData"
+    assert by_name["traffic_speed_bands"].records_key == "value"
+    assert by_name["carpark_availability"].records_key == "value"
 
 
 def test_all_sources_default_to_30_minute_cron():
@@ -62,7 +62,7 @@ class _StubExtractor:
 
 
 def _fake_cfg(payload):
-    return SourceConfig("fake_source", _StubExtractor(payload), "$.value")
+    return SourceConfig("fake_source", _StubExtractor(payload), "value")
 
 
 def test_factory_asset_fetches_via_extractor_and_lands(monkeypatch):
@@ -120,6 +120,6 @@ def test_factory_schedule_names_follow_convention():
 
 
 def test_factory_schedule_honours_per_source_cron_override():
-    cfg = SourceConfig("hourly_source", _StubExtractor({"value": [1]}), "$.value", cron="0 * * * *")
+    cfg = SourceConfig("hourly_source", _StubExtractor({"value": [1]}), "value", cron="0 * * * *")
     sched = build_ingestion_schedule(cfg)
     assert sched.cron_schedule == "0 * * * *"
