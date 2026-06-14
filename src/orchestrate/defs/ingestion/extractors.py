@@ -46,23 +46,22 @@ class ODataPagedExtractor:
     def extract(self, api_key: str) -> dict:
         records: list = []
         last_updated_time = None
-        has_stamp = False
         skip = 0
         while True:
             data = self._get_page(api_key, skip)
             page = data.get("value", [])
             if not page:  # empty page = past the end
                 break
-            if not records and "lastUpdatedTime" in data:  # first page only
-                has_stamp = True
+            if not records:  # first page only
                 last_updated_time = data.get("lastUpdatedTime")
             records.extend(page)
             skip += len(page)
         if not records:
             raise ValueError(f"{self.url} returned an empty payload — refusing to land")
-        if has_stamp:
-            return {"lastUpdatedTime": last_updated_time, "value": records}
-        return {"value": records}
+        payload = {"value": records}
+        if last_updated_time is not None:
+            payload["lastUpdatedTime"] = last_updated_time
+        return payload
 
     def _get_page(self, api_key: str, skip: int) -> dict:
         resp = requests.get(
