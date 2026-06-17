@@ -6,12 +6,16 @@ Singapore EV data pipeline using Dagster for orchestration and dbt for transform
 
 ## Setup
 
-Ensure [`uv`](https://docs.astral.sh/uv/) is installed with `brew install uv`, then install all dependencies and activate the pre-push hook:
+Ensure [`uv`](https://docs.astral.sh/uv/) is installed (`brew install uv`), then run:
 
 ```bash
-uv sync --group dev           # installs ruff, pytest, sqlfluff
-brew install lefthook         # one-time: installs the hook runner binary
-lefthook install              # wires .git/hooks/pre-push
+./bin/setup
+```
+
+This installs Python deps, installs lefthook, wires the pre-push hook, and creates a `.env` from `.env.example` if one doesn't exist. Fill in `LTA_API_KEY` and `DEV_SCHEMA_PREFIX` in `.env`, then authenticate to GCP:
+
+```bash
+gcloud auth application-default login
 ```
 
 The pre-push hook runs `ruff check` and `pytest -x -q` before every push. To bypass in an emergency: `git push --no-verify`.
