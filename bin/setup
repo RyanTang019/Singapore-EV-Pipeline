@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+# One-time developer setup. Run from the repo root: ./bin/setup
+set -e
+
+REPO_ROOT="$(CDPATH= cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO_ROOT"
+
+echo "==> Installing dependencies"
+uv sync --group dev
+
+echo "==> Installing lefthook"
+if ! command -v lefthook > /dev/null 2>&1; then
+    brew install lefthook
+else
+    echo "    lefthook already installed ($(lefthook --version))"
+fi
+
+echo "==> Wiring pre-push hook"
+lefthook install
+
+echo "==> Checking for .env"
+if [ ! -f .env ]; then
+    cp .env.example .env
+    echo "    Created .env from .env.example — fill in your values before running Dagster:"
+    echo "      LTA_API_KEY, DEV_SCHEMA_PREFIX, and gcloud auth application-default login"
+else
+    echo "    .env already exists"
+fi
+
+echo ""
+echo "Setup complete. To start Dagster locally:"
+echo "  ./bin/dg-dev"
