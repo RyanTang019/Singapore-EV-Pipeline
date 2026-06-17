@@ -7,8 +7,8 @@ import os
 
 from dagster import (
     AssetExecutionContext,
-    AssetSelection,
     AssetsDefinition,
+    AssetSelection,
     DefaultScheduleStatus,
     MaterializeResult,
     MetadataValue,

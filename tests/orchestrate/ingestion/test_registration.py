@@ -1,7 +1,8 @@
 from pathlib import Path
 
-import orchestrate
 from dagster import load_from_defs_folder
+
+import orchestrate
 
 
 def _defs():

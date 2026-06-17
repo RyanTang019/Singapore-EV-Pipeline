@@ -1,6 +1,6 @@
-import pytest
-
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from orchestrate.defs.ingestion.extractors import ODataPagedExtractor, S3LinkExtractor
 

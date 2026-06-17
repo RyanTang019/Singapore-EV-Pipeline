@@ -34,6 +34,7 @@ def test_all_sources_default_to_30_minute_cron():
 
 def test_source_config_is_frozen():
     import dataclasses
+
     import pytest
 
     cfg = MANIFEST[0]
