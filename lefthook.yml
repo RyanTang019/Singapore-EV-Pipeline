@@ -1,0 +1,6 @@
+pre-push:
+  commands:
+    lint:
+      run: uv run --group dev ruff check src tests
+    test:
+      run: uv run --group dev pytest -x -q
