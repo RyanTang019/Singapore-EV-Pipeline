@@ -17,6 +17,7 @@ jobs:
       - name: Lint
         run: uv run --group dev ruff check src tests
 
+      # Simplify once first staging models are built
       - name: SQL Lint
         run: |
           if find transform/models -name "*.sql" | grep -q .; then
