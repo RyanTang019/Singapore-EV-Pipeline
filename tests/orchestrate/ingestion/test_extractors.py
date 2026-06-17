@@ -2,7 +2,7 @@ import pytest
 
 from unittest.mock import MagicMock, patch
 
-from orchestrate.defs.ingestion.extractors import ODataPagedExtractor
+from orchestrate.defs.ingestion.extractors import ODataPagedExtractor, S3LinkExtractor
 
 GET = "orchestrate.defs.ingestion.extractors.requests.get"
 ODATA_URL = "https://example/odata"
@@ -70,8 +70,6 @@ def test_odata_empty_result_raises():
         with pytest.raises(ValueError):
             ODataPagedExtractor(ODATA_URL).extract("MYKEY")
 
-
-from orchestrate.defs.ingestion.extractors import S3LinkExtractor
 
 META_URL = "https://example/EVCBatch"
 

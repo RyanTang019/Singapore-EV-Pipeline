@@ -1,5 +1,8 @@
-from dagster import Backoff
+from unittest.mock import patch
 
+from dagster import Backoff, DefaultScheduleStatus, materialize
+
+from orchestrate.defs.ingestion.factory import build_ingestion_asset, build_ingestion_schedule
 from orchestrate.defs.ingestion.manifest import (
     DEFAULT_CRON,
     MANIFEST,
@@ -43,12 +46,6 @@ def test_standard_retry_policy():
     assert STANDARD_RETRY.delay == 10
     assert STANDARD_RETRY.backoff == Backoff.EXPONENTIAL
 
-
-from unittest.mock import patch
-
-from dagster import materialize
-
-from orchestrate.defs.ingestion.factory import build_ingestion_asset
 
 LANDING = "orchestrate.defs.ingestion.landing"
 
@@ -99,11 +96,6 @@ def test_factory_asset_name_matches_config():
     asset_def = build_ingestion_asset(_fake_cfg({"value": [1]}))
     names = {k.path[-1] for k in asset_def.keys}
     assert names == {"fake_source"}
-
-
-from dagster import DefaultScheduleStatus
-
-from orchestrate.defs.ingestion.factory import build_ingestion_schedule
 
 
 def test_factory_schedule_uses_config_cron_and_sgt():
