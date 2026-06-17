@@ -20,7 +20,17 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8",
+    "ruff",
+    "sqlfluff",
+    "sqlfluff-templater-dbt",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
