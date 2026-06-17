@@ -6,11 +6,15 @@ Singapore EV data pipeline using Dagster for orchestration and dbt for transform
 
 ## Setup
 
-Ensure [`uv`](https://docs.astral.sh/uv/) is installed with `brew install uv`, then install all dependencies:
+Ensure [`uv`](https://docs.astral.sh/uv/) is installed with `brew install uv`, then install all dependencies and activate the pre-push hook:
 
 ```bash
-uv sync
+uv sync --group dev           # installs ruff, pytest, sqlfluff
+brew install lefthook         # one-time: installs the hook runner binary
+lefthook install              # wires .git/hooks/pre-push
 ```
+
+The pre-push hook runs `ruff check` and `pytest -x -q` before every push. To bypass in an emergency: `git push --no-verify`.
 
 ## Project Structure
 
