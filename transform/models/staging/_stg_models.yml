@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: stg_ev_charger_availability
+    description: >
+      One row per EV connector per snapshot, exploded from the opaque EVCBatch payload.
+      Grain key: (batch_id, connector_id). Status fields decoded from the two raw LTA
+      vocabularies; longtitude misspelling fixed to longitude.
+    columns:
+      - name: connector_id
+        description: "Physical connector ID (evCpId)."
+        tests:
+          - not_null
+      - name: batch_id
+        description: "Dagster run_id of the ingesting run."
+        tests:
+          - not_null
+      - name: connector_status
+        description: "Decoded connector status."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['available', 'occupied', 'unavailable', 'unknown']
+      - name: point_status
+        description: "Decoded charging-point status (includes the undocumented '100' -> offline_100)."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['available', 'occupied', 'unavailable', 'offline_100', 'unknown']
+      - name: snapshot_time
+        description: "True snapshot time from payload.LastUpdatedTime (distinct from ingested_at)."
+        tests:
+          - not_null
