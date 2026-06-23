@@ -11,8 +11,12 @@ dist/
 .env
 .venv
 
-# Claude Code
+# Claude Code — track shared skills/rules, ignore personal files
 .claude/
+!.claude/skills/
+!.claude/skills/**
+!.claude/rules/
+!.claude/rules/**
 
 # macOS
 .DS_Store
