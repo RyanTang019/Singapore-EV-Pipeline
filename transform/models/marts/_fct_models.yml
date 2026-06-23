@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: fct_ev_location_availability
+    description: >
+      One row per location (postal_code) per snapshot (batch_id). Connector counts and
+      availability_rate, aggregated up from stg_ev_charger_availability. snapshot_time is the
+      chart time axis; grain key is (batch_id, postal_code). Operator excluded (point-level,
+      multi-valued per location) — deferred to a future operator-grain mart.
+    columns:
+      - name: location_availability_key
+        description: "Surrogate key = MD5(batch_id|postal_code). Proves the grain is unique."
+        tests:
+          - unique
+          - not_null
+      - name: postal_code
+        description: "Location natural key (verified 1:1 with site in EVCBatch)."
+        tests:
+          - not_null
+      - name: batch_id
+        description: "Dagster run_id of the ingesting run — the grain's ingestion event."
+        tests:
+          - not_null
+      - name: snapshot_time
+        description: "True snapshot time from payload.LastUpdatedTime; the dashboard time axis."
+        tests:
+          - not_null
+      - name: total_connectors
+        description: "Connectors at this location in this snapshot (COUNT(*))."
+      - name: availability_rate
+        description: "available_connectors / total_connectors (SAFE_DIVIDE). Range checked by singular test."
