@@ -2,6 +2,23 @@
 
 Singapore EV data pipeline using Dagster for orchestration and dbt for transformation.
 
+## The Problem
+
+> **Where and when is Singapore's EV charging supply mismatched to demand — and is
+> infrastructure being built where it's actually needed?**
+
+This is the domain question the whole pipeline exists to answer. Everything below — ingestion,
+the warehouse, dbt models, orchestration, the dashboard — is plumbing in service of it.
+
+Charger availability is captured **every 30 minutes and appended** (never overwritten), so the
+warehouse accrues a historical time series rather than a snapshot. That time series is the core
+asset: it lets us ask **when** (peak-hour / day-of-week saturation), and joining it against demand
+proxies — residential density (HDB, demographics), EV adoption (vehicle population), and
+traffic/carpark patterns — lets us ask **where** supply is structurally under- or over-provisioned.
+
+The aim is to move from *descriptive* ("here is current charger utilisation") to a *supply–demand
+mismatch* read — identifying under-served areas and the times infrastructure is most strained.
+
 ## Setup
 
 Ensure [`uv`](https://docs.astral.sh/uv/) is installed (`brew install uv`), then run:
