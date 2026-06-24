@@ -17,14 +17,8 @@ jobs:
       - name: Lint
         run: uv run --group dev ruff check src tests
 
-      # Simplify once first staging models are built
       - name: SQL Lint
-        run: |
-          if find transform/models -name "*.sql" | grep -q .; then
-            uv run --group dev sqlfluff lint transform/models
-          else
-            echo "No SQL models yet — skipping SQLFluff"
-          fi
+        run: uv run --group dev sqlfluff lint transform/models
 
       - name: Run pytest
         run: uv run --group dev pytest
