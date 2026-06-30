@@ -62,3 +62,5 @@ scratch
 .dagster_home_dev/
 .tmp_dagster_home_*/
 .agents
+
+graphify-out/

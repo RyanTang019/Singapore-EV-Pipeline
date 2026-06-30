@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "dagster==1.13.5",
+    "dagster-dbt>=0.29.5",
     "dagster-dg-cli",
     "dagster-docker>=0.29.5",
     "dagster-gcp>=0.29.5",
