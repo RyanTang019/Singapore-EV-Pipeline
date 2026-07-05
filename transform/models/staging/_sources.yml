@@ -1,0 +1,12 @@
+version: 2
+
+# Registers the raw landing tables (created + filled by the Dagster ingestion engine,
+# src/orchestrate/defs/ingestion/) so dbt models reference them via source('raw', <table>)
+# instead of a hardcoded name. The schema is env-driven: dev_raw locally, prod_raw on the VM.
+sources:
+  - name: raw
+    schema: "{{ env_var('BQ_DATASET_RAW') }}"   # dev_raw | prod_raw
+    description: "Opaque LTA payloads, one row per snapshot {batch_id, source_name, ingested_at, payload(JSON)}."
+    tables:
+      - name: ev_charger_availability
+        description: "EVCBatch snapshots. payload top-level: {LastUpdatedTime, evLocationsData[]}."

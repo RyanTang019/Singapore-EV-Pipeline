@@ -2,6 +2,23 @@
 
 Singapore EV data pipeline using Dagster for orchestration and dbt for transformation.
 
+## The Problem
+
+> **Where and when is Singapore's EV charging supply mismatched to demand — and is
+> infrastructure being built where it's actually needed?**
+
+This is the domain question the whole pipeline exists to answer. Everything below — ingestion,
+the warehouse, dbt models, orchestration, the dashboard — is plumbing in service of it.
+
+Charger availability is captured **every 30 minutes and appended** (never overwritten), so the
+warehouse accrues a historical time series rather than a snapshot. That time series is the core
+asset: it lets us ask **when** (peak-hour / day-of-week saturation), and joining it against demand
+proxies — residential density (HDB, demographics), EV adoption (vehicle population), and
+traffic/carpark patterns — lets us ask **where** supply is structurally under- or over-provisioned.
+
+The aim is to move from *descriptive* ("here is current charger utilisation") to a *supply–demand
+mismatch* read — identifying under-served areas and the times infrastructure is most strained.
+
 ## Setup
 
 Ensure [`uv`](https://docs.astral.sh/uv/) is installed (`brew install uv`), then run:
@@ -59,14 +76,14 @@ Use the local wrapper (a SQLite Dagster instance that bypasses the VM-only `dags
 Datasets are provisioned via Terraform in `asia-southeast1`, split across two GCP projects
 (prod `project-f78a2754…`, dev `sg-pipeline-dev`):
 
-| Dataset                  | Purpose                                                              |
-| ------------------------ | ------------------------------------------------------------------- |
-| `prod_raw`               | Raw ingested data — **production** (the VM writes here)              |
-| `dev_raw`                | **Shared** raw ingestion landing zone — all developers write here   |
-| `prod_staging`           | dbt staging models — prod target                                    |
-| `prod_marts`             | dbt mart models — prod target (Looker Studio reads these)           |
-| `dev_<handle>_staging`   | dbt staging models — per-developer dev target (e.g. `dev_ryan_staging`) |
-| `dev_<handle>_marts`     | dbt mart models — per-developer dev target                          |
+| Dataset                  | Purpose                                                                   |
+| ------------------------ | ------------------------------------------------------------------------- |
+| `prod_raw`             | Raw ingested data —**production** (the VM writes here)             |
+| `dev_raw`              | **Shared** raw ingestion landing zone — all developers write here  |
+| `prod_staging`         | dbt staging models — prod target                                         |
+| `prod_marts`           | dbt mart models — prod target (Looker Studio reads these)                |
+| `dev_<handle>_staging` | dbt staging models — per-developer dev target (e.g.`dev_ryan_staging`) |
+| `dev_<handle>_marts`   | dbt mart models — per-developer dev target                               |
 
 dbt's `dev` target is the safe default; production runs use `./bin/dbt build --target prod`. IAM
 grants the Dagster service account `bigquery.dataEditor` on every dataset.
@@ -173,4 +190,3 @@ never lose data on this append-only feed. See `docs/superpowers/specs/2026-06-08
 - [dbt](https://docs.getdbt.com/) — data transformation
 - [dbt-bigquery](https://docs.getdbt.com/docs/core/connect-data-platform/bigquery-setup) — BigQuery adapter
 - [BigQuery](https://cloud.google.com/bigquery/docs) — data warehouse
-
