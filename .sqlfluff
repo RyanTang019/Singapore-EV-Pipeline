@@ -1,11 +1,13 @@
 [sqlfluff]
-templater = dbt
+# jinja (not dbt) templater: the dbt templater opens a live BigQuery connection
+# during linting (to build its relations cache), which requires GCP credentials
+# and fails in credential-less CI. The jinja templater renders models via the
+# dbt-builtin macro stubs below — no warehouse connection, no env vars needed.
+# dbt DAG validation (broken refs etc.) is covered by `dbt parse`/build in the
+# pipeline, not by this style lint.
+templater = jinja
 dialect = bigquery
 runaway_limit = 10
-
-[sqlfluff:templater:dbt]
-project_dir = transform
-profiles_dir = transform
 
 [sqlfluff:templater]
 unwrap_wrapped_queries = true
