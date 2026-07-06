@@ -20,6 +20,18 @@ jobs:
       - name: SQL Lint
         run: uv run --group dev sqlfluff lint transform/models
 
+      - name: Build dbt manifest
+        env:
+          # @dbt_assets reads transform/target/manifest.json at defs-load time, so
+          # load_from_defs_folder (and the registration tests) need it pre-built.
+          # dbt renders profiles.yml/sources.yml via env_var() at parse time, but
+          # `dbt parse` does NOT connect to BigQuery — dummy values suffice.
+          GCP_PROJECT_ID: dummy-project
+          GCP_REGION: asia-southeast1
+          DEV_SCHEMA_PREFIX: dummy_dev
+          BQ_DATASET_RAW: dummy_raw
+        run: uv run --group dev dbt parse --project-dir transform --profiles-dir transform
+
       - name: Run pytest
         run: uv run --group dev pytest
 
