@@ -18,6 +18,13 @@ jobs:
         run: uv run --group dev ruff check src tests
 
       - name: SQL Lint
+        env:
+          # dbt only needs these to render profiles.yml/sources.yml for parsing —
+          # sqlfluff never connects to BigQuery, so dummy values are sufficient.
+          GCP_PROJECT_ID: dummy-project
+          GCP_REGION: asia-southeast1
+          DEV_SCHEMA_PREFIX: dummy_dev
+          BQ_DATASET_RAW: dummy_raw
         run: uv run --group dev sqlfluff lint transform/models
 
       - name: Run pytest
