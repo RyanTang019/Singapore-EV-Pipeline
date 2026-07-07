@@ -21,6 +21,10 @@ run_launcher:
 run_coordinator:
   module: dagster.core.run_coordinator
   class: QueuedRunCoordinator
+  config:
+    # 4GB VM runs one job at a time; without this max_concurrent_runs defaults
+    # to 10, which would dequeue the 6-hourly dbt build alongside ingestion.
+    max_concurrent_runs: 1
 
 storage:
   postgres:
