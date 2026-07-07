@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Lint
+        run: uv run --group dev ruff check src tests
+
+      - name: SQL Lint
+        run: uv run --group dev sqlfluff lint transform/models
+
+      - name: Build dbt manifest
+        env:
+          # @dbt_assets reads transform/target/manifest.json at defs-load time, so
+          # load_from_defs_folder (and the registration tests) need it pre-built.
+          # dbt renders profiles.yml/sources.yml via env_var() at parse time, but
+          # `dbt parse` does NOT connect to BigQuery; dummy values suffice.
+          GCP_PROJECT_ID: dummy-project
+          GCP_REGION: asia-southeast1
+          DEV_SCHEMA_PREFIX: dummy_dev
+          BQ_DATASET_RAW: dummy_raw
+        run: uv run --group dev dbt parse --project-dir transform --profiles-dir transform
+
+      - name: Run pytest
+        run: uv run --group dev pytest
