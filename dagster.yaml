@@ -12,6 +12,7 @@ run_launcher:
       - GCP_REGION
       - BQ_DATASET_RAW
       - LTA_API_KEY
+      - DBT_TARGET
     network: ev_pipeline_network
     container_kwargs:
       volumes:

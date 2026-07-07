@@ -18,6 +18,18 @@ RUN uv sync --frozen --no-dev
 
 ENV PATH="/opt/dagster/app/.venv/bin:$PATH"
 
+# Bake transform/target/manifest.json into the image. @dbt_assets reads the manifest at
+# defs-load time, so `code-server start -m orchestrate.definitions` (below) crashes with
+# DagsterDbtManifestNotFoundError without it. prepare_if_dev() only regenerates it under
+# `dg dev`, and the CI build context is a fresh checkout where target/ (gitignored) is absent.
+# `dbt parse` renders profiles.yml/sources.yml via env_var() so it needs these vars, but it
+# does NOT connect to BigQuery — build-time dummies suffice; real values come from the VM env.
+ENV GCP_PROJECT_ID=dummy-project \
+    GCP_REGION=asia-southeast1 \
+    DEV_SCHEMA_PREFIX=dummy_dev \
+    BQ_DATASET_RAW=dummy_raw
+RUN dbt parse --project-dir transform --profiles-dir transform
+
 EXPOSE 4000
 
 HEALTHCHECK --timeout=3s --start-period=30s --interval=5s --retries=12 \
