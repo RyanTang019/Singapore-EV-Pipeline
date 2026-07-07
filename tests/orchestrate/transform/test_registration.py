@@ -9,7 +9,7 @@ ingestion -> staging -> mart. Loading the defs folder requires a dbt manifest on
 from pathlib import Path
 
 import pytest
-from dagster import AssetKey, load_from_defs_folder
+from dagster import AssetKey, DefaultScheduleStatus, load_from_defs_folder
 
 import orchestrate
 
@@ -43,3 +43,20 @@ def test_staging_is_downstream_of_ingestion_asset():
 def test_mart_is_downstream_of_staging():
     fct = _graph().get(AssetKey(["marts", "fct_ev_location_availability"]))
     assert AssetKey(["staging", "stg_ev_charger_availability"]) in fct.parent_keys
+
+
+def test_dbt_build_schedule_registered():
+    defs = load_from_defs_folder(path_within_project=Path(orchestrate.__file__).parent)
+    sched = defs.resolve_schedule_def("dbt_build_schedule")
+    assert sched.cron_schedule == "15 */6 * * *"
+    assert sched.execution_timezone == "Asia/Singapore"
+    assert sched.default_status == DefaultScheduleStatus.RUNNING
+
+
+def test_dbt_build_job_selects_the_dbt_models():
+    defs = load_from_defs_folder(path_within_project=Path(orchestrate.__file__).parent)
+    sched = defs.resolve_schedule_def("dbt_build_schedule")
+    job = defs.resolve_job_def(sched.job.name)
+    selected = {"/".join(k.path) for k in job.asset_layer.executable_asset_keys}
+    assert "staging/stg_ev_charger_availability" in selected
+    assert "marts/fct_ev_location_availability" in selected
