@@ -1,11 +1,19 @@
 FROM python:3.11-slim
 
+# Versions pinned to uv.lock. A bare unpinned `pip install` re-resolves on every rebuild —
+# that is how the server silently pulled a grpcio-health-checking whose generated code
+# (gencode 7.35.0) outran the protobuf runtime (6.33.6) and crash-looped on startup. Keep the
+# dagster versions in step with uv.lock / Dockerfile_user_code so server and user_code never
+# drift apart; the grpcio/protobuf trio is pinned explicitly because they broke as transitives.
 RUN pip install \
-    dagster \
-    dagster-graphql \
-    dagster-webserver \
-    dagster-postgres \
-    dagster-docker
+    dagster==1.13.5 \
+    dagster-graphql==1.13.5 \
+    dagster-webserver==1.13.5 \
+    dagster-postgres==0.29.5 \
+    dagster-docker==0.29.5 \
+    grpcio==1.80.0 \
+    grpcio-health-checking==1.80.0 \
+    protobuf==6.33.6
 
 ENV DAGSTER_HOME=/opt/dagster/dagster_home/
 
