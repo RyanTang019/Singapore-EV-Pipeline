@@ -32,6 +32,7 @@ services:
       GCP_REGION: "asia-southeast1"
       BQ_DATASET_RAW: "${BQ_DATASET_RAW:-prod_raw}"  # must match terraform var.raw_dataset_id — update Secret Manager if changed
       LTA_API_KEY: "${LTA_API_KEY}"
+      DBT_TARGET: "prod"  # dbt profiles.yml defaults to dev; prod must be opted in (writes prod_staging/prod_marts)
     volumes:
       - /opt/dagster/dagster-sa-key.json:/opt/dagster/app/dagster-sa-key.json:ro
     networks:
@@ -89,6 +90,9 @@ services:
       GCP_REGION: "asia-southeast1"
       BQ_DATASET_RAW: "${BQ_DATASET_RAW:-prod_raw}"
       LTA_API_KEY: "${LTA_API_KEY}"
+      # Forwarded by DockerRunLauncher into each spawned run container (see dagster.yaml
+      # run_launcher.env_vars) — that's where `dbt build` actually runs, so it must be set here.
+      DBT_TARGET: "prod"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
