@@ -31,3 +31,56 @@ models:
         description: "True snapshot time from payload.LastUpdatedTime (distinct from ingested_at)."
         tests:
           - not_null
+
+  - name: stg_traffic_speed_bands
+    description: >
+      One row per road link (LinkID) per snapshot, exploded from the opaque
+      v3/TrafficSpeedBands payload. Grain key: (batch_id, link_id). Numeric
+      fields cast from JSON strings. SpeedBand is 1-8 plus an undocumented 0
+      (no reading). No internal timestamp; ingested_at is the snapshot time.
+    columns:
+      - name: link_id
+        description: "LTA road-link ID (LinkID) — the grain within a batch."
+        tests:
+          - not_null
+      - name: batch_id
+        description: "Dagster run_id of the ingesting run."
+        tests:
+          - not_null
+      - name: ingested_at
+        description: "Timestamp this batch was written to BigQuery (the snapshot time)."
+        tests:
+          - not_null
+      - name: speed_band
+        description: "LTA speed band 1 (slowest) to 8 (fastest); 0 = no reading."
+        tests:
+          - not_null
+
+  - name: stg_carpark_availability
+    description: >
+      One row per carpark per lot type (CarParkID + LotType) per snapshot,
+      exploded from the opaque CarParkAvailabilityv2 payload. Grain key:
+      (batch_id, carpark_id, lot_type) — CarParkID alone is not unique. Location
+      split from a "lat lon" string. Feed carries AvailableLots only (no total
+      capacity). No internal timestamp; ingested_at is the snapshot time.
+    columns:
+      - name: carpark_id
+        description: "LTA CarParkID. Not unique alone — pair with lot_type for grain."
+        tests:
+          - not_null
+      - name: lot_type
+        description: "Vehicle class: C/H/Y (Cars/Heavy/motorcYcles) plus undocumented S."
+        tests:
+          - not_null
+      - name: batch_id
+        description: "Dagster run_id of the ingesting run."
+        tests:
+          - not_null
+      - name: ingested_at
+        description: "Timestamp this batch was written to BigQuery (the snapshot time)."
+        tests:
+          - not_null
+      - name: available_lots
+        description: "Currently available lots for this carpark + lot type (no total capacity in feed)."
+        tests:
+          - not_null

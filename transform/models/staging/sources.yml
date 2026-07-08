@@ -10,3 +10,7 @@ sources:
     tables:
       - name: ev_charger_availability
         description: "EVCBatch snapshots. payload top-level: {LastUpdatedTime, evLocationsData[]}."
+      - name: traffic_speed_bands
+        description: "v3/TrafficSpeedBands snapshots. payload.value[] = one road link (LinkID) each. No internal timestamp."
+      - name: carpark_availability
+        description: "CarParkAvailabilityv2 snapshots. payload.value[] = one carpark x lot type each. No internal timestamp."
