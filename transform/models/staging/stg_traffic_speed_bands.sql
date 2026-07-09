@@ -2,9 +2,12 @@
    v3/TrafficSpeedBands payload (records under $.value) into typed columns.
    LTA quirks handled: the numeric fields all arrive as JSON strings (cast
    here); SpeedBand is documented 1-8 but an undocumented 0 (no speed reading)
-   also appears and is passed through untouched so it stays visible. There is no
-   timestamp inside the payload (unlike EVCBatch), so ingested_at is the only
-   snapshot time. Downstream models read this, never the raw JSON. #}
+   also appears and is passed through untouched so it stays visible.
+   The payload DOES carry a top-level lastUpdatedTime (SGT wall-clock, no tz
+   suffix) -- the authoritative snapshot time, distinct from ingested_at (our
+   fetch time). It is tz-normalized to a true UTC instant here (see snapshot_time
+   below), matching the EV and carpark staging models. Downstream models read
+   this, never the raw JSON. #}
 
 {{ config(materialized='view') }}
 
@@ -27,6 +30,16 @@ exploded as (
         cast(json_value(link, '$.StartLon') as float64) as start_longitude,
         cast(json_value(link, '$.EndLat') as float64) as end_latitude,
         cast(json_value(link, '$.EndLon') as float64) as end_longitude,
+
+        -- authoritative snapshot time from payload.lastUpdatedTime (SGT
+        -- wall-clock) pinned to Asia/Singapore -> true UTC instant. Constant
+        -- within a batch. Ordered after the casts to satisfy sqlfluff ST06.
+        timestamp(
+            cast(
+                json_value(s.payload, '$.lastUpdatedTime') as datetime
+            ),
+            'Asia/Singapore'
+        ) as snapshot_time,
 
         -- link identity/attributes (the grain is link_id); ordered after the
         -- casts to satisfy sqlfluff ST06 (casts before bare extractions)

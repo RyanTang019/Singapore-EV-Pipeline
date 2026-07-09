@@ -37,7 +37,8 @@ models:
       One row per road link (LinkID) per snapshot, exploded from the opaque
       v3/TrafficSpeedBands payload. Grain key: (batch_id, link_id). Numeric
       fields cast from JSON strings. SpeedBand is 1-8 plus an undocumented 0
-      (no reading). No internal timestamp; ingested_at is the snapshot time.
+      (no reading). Payload carries a top-level lastUpdatedTime (SGT wall-clock),
+      exposed as snapshot_time normalized to true UTC; distinct from ingested_at.
     columns:
       - name: link_id
         description: "LTA road-link ID (LinkID) — the grain within a batch."
@@ -48,7 +49,11 @@ models:
         tests:
           - not_null
       - name: ingested_at
-        description: "Timestamp this batch was written to BigQuery (the snapshot time)."
+        description: "Timestamp this batch was written to BigQuery (our fetch time)."
+        tests:
+          - not_null
+      - name: snapshot_time
+        description: "Authoritative snapshot time from payload.lastUpdatedTime, tz-normalized to UTC."
         tests:
           - not_null
       - name: speed_band
@@ -59,13 +64,17 @@ models:
   - name: stg_carpark_availability
     description: >
       One row per carpark per lot type (CarParkID + LotType) per snapshot,
-      exploded from the opaque CarParkAvailabilityv2 payload. Grain key:
-      (batch_id, carpark_id, lot_type) — CarParkID alone is not unique. Location
-      split from a "lat lon" string. Feed carries AvailableLots only (no total
-      capacity). No internal timestamp; ingested_at is the snapshot time.
+      exploded from the opaque CarParkAvailabilityv2 payload. Intended grain is
+      (batch_id, carpark_id, lot_type) but this key is NOT strictly unique — the
+      feed repeats the same carpark_id + lot_type within a snapshot (~81 rows in
+      history, mostly exact dupes), so there is deliberately no unique test here.
+      Downstream models MUST dedupe/aggregate before treating it as a key.
+      Location split from a "lat lon" string. Feed carries AvailableLots only (no
+      total capacity). Payload has no internal timestamp; snapshot_time is set to
+      ingested_at (true UTC).
     columns:
       - name: carpark_id
-        description: "LTA CarParkID. Not unique alone — pair with lot_type for grain."
+        description: "LTA CarParkID. Not unique alone — pair with lot_type, and even then not strictly unique."
         tests:
           - not_null
       - name: lot_type
@@ -77,7 +86,11 @@ models:
         tests:
           - not_null
       - name: ingested_at
-        description: "Timestamp this batch was written to BigQuery (the snapshot time)."
+        description: "Timestamp this batch was written to BigQuery (our fetch time)."
+        tests:
+          - not_null
+      - name: snapshot_time
+        description: "Snapshot time = ingested_at (payload has no internal timestamp); true UTC."
         tests:
           - not_null
       - name: available_lots

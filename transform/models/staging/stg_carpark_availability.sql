@@ -8,8 +8,9 @@
    appears and is passed through untouched; Area is empty for ~98% of rows
    (Development is the usable site name). The feed carries AvailableLots ONLY --
    there is no total capacity, so occupancy cannot be derived from this source
-   alone. No timestamp inside the payload, so ingested_at is the only snapshot
-   time.
+   alone. The payload has NO internal timestamp (top level is just {value[]}),
+   so snapshot_time is set to ingested_at (already a true UTC instant) -- this
+   keeps a uniform snapshot_time interface across all staging models.
    NOT-UNIQUE GRAIN: the feed occasionally repeats the same carpark_id + lot_type
    within a single snapshot (~81 rows across history so far, nearly all exact
    duplicates), so (batch_id, carpark_id, lot_type) is not a strict unique key --
@@ -26,6 +27,10 @@ exploded as (
     select
         s.batch_id,
         s.ingested_at,
+
+        -- no timestamp in this payload; ingested_at (true UTC) is the snapshot
+        -- time. Aliased for a uniform snapshot_time interface across staging.
+        s.ingested_at as snapshot_time,
 
         -- measure (available lots only; no total capacity in this feed)
         cast(json_value(lot, '$.AvailableLots') as int64) as available_lots,
