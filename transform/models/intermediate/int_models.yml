@@ -12,6 +12,19 @@ models:
       stg_carpark_availability deduped to one row per (batch_id, carpark_id, lot_type) via
       last-observed (latest source_offset), tagged with planning_area, plus SGT time features.
 
+  - name: int_traffic_links
+    description: >
+      One row per physical road link (link_id) tagged to a planning_area via its midpoint.
+      Materialized as a table so the spatial join runs once per link, not per observation.
+    columns:
+      - name: link_id
+        description: "LTA road-link ID. Unique here — proves the one-row-per-link grain the fact join relies on."
+        tests:
+          - unique
+          - not_null
+      - name: planning_area
+        description: "Planning area containing the link midpoint; NULL if outside all areas."
+
 unit_tests:
   - name: int_ev_tagged_spatial_tag_and_time_features
     description: >
