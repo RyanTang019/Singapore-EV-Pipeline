@@ -38,3 +38,7 @@ models:
     marts:
       +schema: marts
 
+seeds:
+  transform:
+    +schema: seed
+
