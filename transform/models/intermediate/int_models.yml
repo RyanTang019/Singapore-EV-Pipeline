@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: int_ev_tagged
+    description: >
+      stg_ev_charger_availability tagged with planning_area (via planning_area_of on lat/lon)
+      and time features derived from snapshot_time. Grain unchanged (connector per snapshot).
+
+unit_tests:
+  - name: int_ev_tagged_utc_to_sgt_time_features
+    description: >
+      A UTC snapshot_time straddling the 8-hour offset must produce SGT time features.
+      2026-01-01 18:00 UTC = 2026-01-02 02:00 SGT (Friday). Guards against an 8-hour skew.
+      dim_planning_area is mocked empty so planning_area is NULL and no GEOGRAPHY is needed.
+      The null / out-of-range coord rows prove the SAFE.ST_GEOGPOINT guard: bad coords must
+      not error — they pass through with planning_area NULL.
+    model: int_ev_tagged
+    given:
+      - input: ref('stg_ev_charger_availability')
+        rows:
+          - {batch_id: "b1", postal_code: "123456", latitude: 1.30, longitude: 103.90, snapshot_time: "2026-01-01 18:00:00+00", connector_status: "available"}
+          - {batch_id: "b1", postal_code: "000000", latitude: null, longitude: null, snapshot_time: "2026-01-01 18:00:00+00", connector_status: "available"}
+          - {batch_id: "b1", postal_code: "999999", latitude: 999.0, longitude: 999.0, snapshot_time: "2026-01-01 18:00:00+00", connector_status: "available"}
+      - input: ref('dim_planning_area')
+        rows: []
+    expect:
+      rows:
+        - {postal_code: "123456", planning_area: null, snapshot_date: "2026-01-02", hour_of_day: 2, day_of_week: 5}
+        - {postal_code: "000000", planning_area: null, snapshot_date: "2026-01-02", hour_of_day: 2, day_of_week: 5}
+        - {postal_code: "999999", planning_area: null, snapshot_date: "2026-01-02", hour_of_day: 2, day_of_week: 5}
