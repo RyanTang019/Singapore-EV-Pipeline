@@ -67,3 +67,46 @@ models:
                 field: planning_area
               config:
                 where: "planning_area is not null"
+
+  - name: fct_traffic_congestion
+    description: >
+      Congestion per (planning_area, snapshot). mean_speed_band and congested_link_rate (0–1) built
+      only on real readings; no_reading_link_count surfaces the data-quality gap. Grain (batch_id, planning_area).
+    columns:
+      - name: traffic_congestion_key
+        description: "Surrogate key MD5(batch_id|planning_area). Proves the grain."
+        tests:
+          - unique
+          - not_null
+      - name: batch_id
+        tests: [not_null]
+      - name: planning_area
+        description: "URA planning area (grain). Always non-null here (null-area links excluded)."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_planning_area')
+                field: planning_area
+      - name: congested_link_rate
+        description: "Fraction (0–1) of measured links with speed_band <= 2. NULL if no readings."
+
+unit_tests:
+  - name: fct_traffic_congestion_excludes_no_reading
+    description: >
+      SpeedBand 0 (no reading) must NOT count as congestion. Two links in area A, one snapshot:
+      link L1 band 2 (congested), link L2 band 0 (no reading). Expect link_count = 1 (measured only),
+      congested_link_rate = 1.0 (1 of 1 measured is <= 2), no_reading_link_count = 1, mean_speed_band = 2.
+    model: fct_traffic_congestion
+    given:
+      - input: ref('stg_traffic_speed_bands')
+        rows:
+          - {batch_id: "b1", link_id: "L1", speed_band: 2, speed_band_for_metrics: 2, is_no_reading: false, snapshot_time: "2026-01-01 04:00:00+00"}
+          - {batch_id: "b1", link_id: "L2", speed_band: 0, speed_band_for_metrics: null, is_no_reading: true, snapshot_time: "2026-01-01 04:00:00+00"}
+      - input: ref('int_traffic_links')
+        rows:
+          - {link_id: "L1", planning_area: "AREA_A"}
+          - {link_id: "L2", planning_area: "AREA_A"}
+    expect:
+      rows:
+        - {planning_area: "AREA_A", link_count: 1, congested_link_rate: 1.0, no_reading_link_count: 1, mean_speed_band: 2.0}
