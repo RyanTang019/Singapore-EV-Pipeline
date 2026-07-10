@@ -29,3 +29,12 @@ models:
         description: "Connectors at this location in this snapshot (COUNT(*))."
       - name: availability_rate
         description: "available_connectors / total_connectors (SAFE_DIVIDE). Range checked by singular test."
+      - name: planning_area
+        description: "URA planning area containing the location; NULL if outside all areas."
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_planning_area')
+                field: planning_area
+              config:
+                where: "planning_area is not null"
