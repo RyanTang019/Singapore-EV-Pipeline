@@ -1,6 +1,35 @@
 version: 2
 
 models:
+  - name: fct_carpark_availability
+    description: >
+      One row per carpark per lot type per snapshot (deduped last-observed). Measure available_lots;
+      tagged to planning_area with time features. Grain (batch_id, carpark_id, lot_type).
+    columns:
+      - name: carpark_availability_key
+        description: "Surrogate key MD5(batch_id|carpark_id|lot_type). Proves the grain."
+        tests:
+          - unique
+          - not_null
+      - name: batch_id
+        tests: [not_null]
+      - name: carpark_id
+        tests: [not_null]
+      - name: lot_type
+        tests: [not_null]
+      - name: available_lots
+        description: "Available lots for this carpark+lot type (no total capacity in feed)."
+        tests: [not_null]
+      - name: planning_area
+        description: "URA planning area containing the carpark; NULL if outside all areas."
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_planning_area')
+                field: planning_area
+              config:
+                where: "planning_area is not null"
+
   - name: fct_ev_location_availability
     description: >
       One row per location (postal_code) per snapshot (batch_id). Connector counts and
