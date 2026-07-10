@@ -14,6 +14,9 @@ unwrap_wrapped_queries = true
 
 [sqlfluff:templater:jinja]
 apply_dbt_builtins = True
+# Load the project's custom macros (planning_area_of, time_features) so the jinja
+# templater can render models that call them — otherwise they lint as undefined.
+load_macros_from_path = transform/macros
 
 [sqlfluff:templater:jinja:macros]
 dbt_ref = {% macro ref(model_ref) %}{{model_ref}}{% endmacro %}

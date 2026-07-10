@@ -1,0 +1,65 @@
+version: 2
+
+models:
+  - name: int_ev_tagged
+    description: >
+      stg_ev_charger_availability tagged with planning_area (distinct-point INNER spatial
+      join to dim_planning_area, min() alphabetical tie-break, left equi-join back) and SGT
+      time features derived from snapshot_time. Grain unchanged (connector per snapshot).
+
+  - name: int_carpark_tagged
+    description: >
+      stg_carpark_availability deduped to one row per (batch_id, carpark_id, lot_type) via
+      last-observed (latest source_offset), tagged with planning_area, plus SGT time features.
+
+  - name: int_traffic_links
+    description: >
+      One row per physical road link (link_id) tagged to a planning_area via its midpoint.
+      Materialized as a table so the spatial join runs once per link, not per observation.
+    columns:
+      - name: link_id
+        description: "LTA road-link ID. Unique here — proves the one-row-per-link grain the fact join relies on."
+        tests:
+          - unique
+          - not_null
+      - name: planning_area
+        description: "Planning area containing the link midpoint; NULL if outside all areas."
+
+unit_tests:
+  - name: int_ev_tagged_spatial_tag_and_time_features
+    description: >
+      Exercises the spatial tag against a real (mocked) two-polygon world AND the UTC->SGT
+      time features in one shot. AREA_A = lon/lat [0,2]^2, AREA_B = [1,3]^2 (overlap [1,2]^2).
+      Cases: inside-A-only, boundary-of-A, inside-both (proves min() picks AREA_A alphabetically),
+      outside-all (NULL), invalid coords (SAFE.ST_GEOGPOINT -> NULL, no error). All snapshots are
+      2026-01-01 18:00 UTC = 2026-01-02 02:00 SGT (Fri): snapshot_date 2026-01-02, hour 2, dow 5.
+    model: int_ev_tagged
+    given:
+      - input: ref('stg_ev_charger_availability')
+        rows:
+          - {batch_id: "b1", postal_code: "A00001", longitude: 0.5, latitude: 0.5, snapshot_time: "2026-01-01 18:00:00+00", connector_status: "available"}
+          - {batch_id: "b1", postal_code: "A00002", longitude: 1.5, latitude: 1.5, snapshot_time: "2026-01-01 18:00:00+00", connector_status: "available"}
+          - {batch_id: "b1", postal_code: "A00003", longitude: 0.0, latitude: 1.0, snapshot_time: "2026-01-01 18:00:00+00", connector_status: "available"}
+          - {batch_id: "b1", postal_code: "A00004", longitude: 5.0, latitude: 5.0, snapshot_time: "2026-01-01 18:00:00+00", connector_status: "available"}
+          - {batch_id: "b1", postal_code: "A00005", longitude: 999.0, latitude: 999.0, snapshot_time: "2026-01-01 18:00:00+00", connector_status: "available"}
+      - input: ref('dim_planning_area')
+        format: sql
+        rows: |
+          select
+              'AREA_A' as planning_area,
+              'R' as region,
+              st_geogfromtext('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))') as boundary,
+              cast(4.0 as float64) as area_sqkm
+          union all
+          select
+              'AREA_B',
+              'R',
+              st_geogfromtext('POLYGON((1 1, 1 3, 3 3, 3 1, 1 1))'),
+              cast(4.0 as float64)
+    expect:
+      rows:
+        - {postal_code: "A00001", planning_area: "AREA_A", snapshot_date: "2026-01-02", hour_of_day: 2, day_of_week: 5}
+        - {postal_code: "A00002", planning_area: "AREA_A", snapshot_date: "2026-01-02", hour_of_day: 2, day_of_week: 5}
+        - {postal_code: "A00003", planning_area: "AREA_A", snapshot_date: "2026-01-02", hour_of_day: 2, day_of_week: 5}
+        - {postal_code: "A00004", planning_area: null, snapshot_date: "2026-01-02", hour_of_day: 2, day_of_week: 5}
+        - {postal_code: "A00005", planning_area: null, snapshot_date: "2026-01-02", hour_of_day: 2, day_of_week: 5}

@@ -23,6 +23,13 @@ select
     any_value(latitude) as latitude,
     any_value(longitude) as longitude,
 
+    -- spatial + time attributes (planning_area constant within a postal code,
+    -- time features constant within a batch -> any_value is safe)
+    any_value(planning_area) as planning_area,
+    any_value(snapshot_date) as snapshot_date,
+    any_value(hour_of_day) as hour_of_day,
+    any_value(day_of_week) as day_of_week,
+
     -- measures
     count(*) as total_connectors,
     countif(connector_status = 'available') as available_connectors,
@@ -36,5 +43,5 @@ select
         count(*)
     ) as availability_rate
 
-from {{ ref('stg_ev_charger_availability') }}
+from {{ ref('int_ev_tagged') }}
 group by batch_id, postal_code

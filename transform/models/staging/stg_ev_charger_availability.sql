@@ -18,14 +18,24 @@ connectors as (
     select
         s.batch_id,
         s.ingested_at,
-        -- true snapshot time from inside the payload, distinct from ingested_at
-        -- (our fetch time)
-        cast(json_value(s.payload, '$.LastUpdatedTime') as timestamp)
-            as snapshot_time,
 
         -- location level
         cast(json_value(loc, '$.latitude') as float64) as latitude,
         cast(json_value(loc, '$.longtitude') as float64) as longitude,
+
+        -- true snapshot time from inside the payload, distinct from ingested_at
+        -- (our fetch time). LastUpdatedTime is SGT wall-clock with no tz, so a
+        -- bare cast would mislabel it as UTC (8h skew). Cast to a naive
+        -- DATETIME then pin to Asia/Singapore -> a genuine UTC instant,
+        -- consistent with ingested_at and the other staging models. Ordered
+        -- after the casts to satisfy sqlfluff ST06.
+        timestamp(
+            cast(
+                json_value(s.payload, '$.LastUpdatedTime') as datetime
+            ),
+            'Asia/Singapore'
+        ) as snapshot_time,
+
         json_value(loc, '$.name') as location_name,
         json_value(loc, '$.address') as address,
         -- API misspells "longitude"

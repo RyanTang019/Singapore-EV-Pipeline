@@ -32,6 +32,18 @@ variable "prod_marts_dataset_id" {
   default     = "prod_marts"
 }
 
+variable "prod_intermediate_dataset_id" {
+  description = "BigQuery dataset for dbt intermediate models (prod target)"
+  type        = string
+  default     = "prod_intermediate"
+}
+
+variable "prod_seed_dataset_id" {
+  description = "BigQuery dataset for dbt seeds (prod target)"
+  type        = string
+  default     = "prod_seed"
+}
+
 variable "developers" {
   description = "Developer handles — each gets dev_<handle>_staging and _marts (raw is shared: dev_raw)"
   type        = list(string)

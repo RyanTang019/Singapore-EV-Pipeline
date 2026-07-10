@@ -24,7 +24,7 @@ jobs:
         run: uv run --group dev ruff check src tests
 
       - name: SQL Lint
-        run: uv run --group dev sqlfluff lint transform/models
+        run: uv run --group dev sqlfluff lint transform/models transform/macros
 
       - name: Build dbt manifest
         env:

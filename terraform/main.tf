@@ -36,6 +36,30 @@ resource "google_bigquery_dataset" "prod_marts" {
   }
 }
 
+resource "google_bigquery_dataset" "prod_intermediate" {
+  dataset_id = var.prod_intermediate_dataset_id
+  location   = var.region
+
+  description = "dbt intermediate models - tagged/deduped sources (prod)"
+
+  labels = {
+    environment = "production"
+    pipeline    = "ev-pipeline"
+  }
+}
+
+resource "google_bigquery_dataset" "prod_seed" {
+  dataset_id = var.prod_seed_dataset_id
+  location   = var.region
+
+  description = "dbt seeds - URA planning-area boundaries (prod)"
+
+  labels = {
+    environment = "production"
+    pipeline    = "ev-pipeline"
+  }
+}
+
 # IAM - grant service account access to each dataset
 # Uses implicit dependencies to ensure datasets are created before IAM bindings
 
@@ -53,6 +77,18 @@ resource "google_bigquery_dataset_iam_member" "prod_staging_editor" {
 
 resource "google_bigquery_dataset_iam_member" "prod_marts_editor" {
   dataset_id = google_bigquery_dataset.prod_marts.dataset_id
+  role       = "roles/bigquery.dataEditor"
+  member     = "serviceAccount:${var.service_account_email}"
+}
+
+resource "google_bigquery_dataset_iam_member" "prod_intermediate_editor" {
+  dataset_id = google_bigquery_dataset.prod_intermediate.dataset_id
+  role       = "roles/bigquery.dataEditor"
+  member     = "serviceAccount:${var.service_account_email}"
+}
+
+resource "google_bigquery_dataset_iam_member" "prod_seed_editor" {
+  dataset_id = google_bigquery_dataset.prod_seed.dataset_id
   role       = "roles/bigquery.dataEditor"
   member     = "serviceAccount:${var.service_account_email}"
 }
