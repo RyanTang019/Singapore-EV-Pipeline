@@ -31,6 +31,17 @@ def test_dbt_models_discovered_as_assets():
     keys = {"/".join(k.path) for k in _graph().get_all_asset_keys()}
     assert "staging/stg_ev_charger_availability" in keys
     assert "marts/fct_ev_location_availability" in keys
+    # spatial foundation + per-source facts (2026-07-10 mart build)
+    for k in [
+        "seed/planning_areas",
+        "marts/dim_planning_area",
+        "intermediate/int_ev_tagged",
+        "intermediate/int_carpark_tagged",
+        "intermediate/int_traffic_links",
+        "marts/fct_carpark_availability",
+        "marts/fct_traffic_congestion",
+    ]:
+        assert k in keys, k
 
 
 def test_staging_is_downstream_of_ingestion_asset():
@@ -41,8 +52,24 @@ def test_staging_is_downstream_of_ingestion_asset():
 
 
 def test_mart_is_downstream_of_staging():
+    # EV fact now sources from int_ev_tagged (planning_area + time features), which
+    # in turn descends from staging. Assert the new direct parent and the chain.
     fct = _graph().get(AssetKey(["marts", "fct_ev_location_availability"]))
-    assert AssetKey(["staging", "stg_ev_charger_availability"]) in fct.parent_keys
+    assert AssetKey(["intermediate", "int_ev_tagged"]) in fct.parent_keys
+    ev_int = _graph().get(AssetKey(["intermediate", "int_ev_tagged"]))
+    assert AssetKey(["staging", "stg_ev_charger_availability"]) in ev_int.parent_keys
+
+
+def test_carpark_and_traffic_facts_downstream_of_ingestion():
+    cp = _graph().get(AssetKey(["marts", "fct_carpark_availability"]))
+    assert AssetKey(["intermediate", "int_carpark_tagged"]) in cp.parent_keys
+    cp_int = _graph().get(AssetKey(["intermediate", "int_carpark_tagged"]))
+    assert AssetKey(["staging", "stg_carpark_availability"]) in cp_int.parent_keys
+
+    links = _graph().get(AssetKey(["intermediate", "int_traffic_links"]))
+    assert AssetKey(["staging", "stg_traffic_speed_bands"]) in links.parent_keys
+    tc = _graph().get(AssetKey(["marts", "fct_traffic_congestion"]))
+    assert AssetKey(["intermediate", "int_traffic_links"]) in tc.parent_keys
 
 
 def test_dbt_build_schedule_registered():
