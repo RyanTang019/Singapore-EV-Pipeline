@@ -97,3 +97,7 @@ models:
         description: "Currently available lots for this carpark + lot type (no total capacity in feed)."
         tests:
           - not_null
+      - name: source_offset
+        description: "0-based position of this row in the payload $.value array; last-observed dedupe key."
+        tests:
+          - not_null

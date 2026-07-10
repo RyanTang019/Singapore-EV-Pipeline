@@ -32,6 +32,11 @@ exploded as (
         -- time. Aliased for a uniform snapshot_time interface across staging.
         s.ingested_at as snapshot_time,
 
+        -- array position in the payload; the last-observed dedupe key for
+        -- repeated (carpark_id, lot_type) rows downstream. Bare column, so it
+        -- sits with the simple targets (ST06: simple targets before casts).
+        source_offset,
+
         -- measure (available lots only; no total capacity in this feed)
         cast(json_value(lot, '$.AvailableLots') as int64) as available_lots,
 
@@ -54,6 +59,7 @@ exploded as (
 
     from source as s,
         unnest(json_query_array(s.payload, '$.value')) as lot
+        with offset as source_offset
 ),
 
 final as (
