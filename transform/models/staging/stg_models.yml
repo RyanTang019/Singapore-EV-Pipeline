@@ -60,6 +60,12 @@ models:
         description: "LTA speed band 1 (slowest) to 8 (fastest); 0 = no reading."
         tests:
           - not_null
+      - name: is_no_reading
+        description: "True when SpeedBand = 0 (LTA 'no speed reading', not congestion)."
+        tests:
+          - not_null
+      - name: speed_band_for_metrics
+        description: "speed_band with 0 nulled out (NULLIF) — the metrics-safe value for congestion aggregates."
 
   - name: stg_carpark_availability
     description: >

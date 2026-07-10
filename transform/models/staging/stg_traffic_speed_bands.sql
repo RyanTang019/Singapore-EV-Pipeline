@@ -31,6 +31,14 @@ exploded as (
         cast(json_value(link, '$.EndLat') as float64) as end_latitude,
         cast(json_value(link, '$.EndLon') as float64) as end_longitude,
 
+        -- SpeedBand 0 = "no reading" (LTA undocumented). Split out so every
+        -- downstream congestion metric inherits reading-only semantics (0 must
+        -- never count as gridlock). Comparison/nullif = calcs, so after the
+        -- plain casts above (sqlfluff ST06).
+        cast(json_value(link, '$.SpeedBand') as int64) = 0 as is_no_reading,
+        nullif(cast(json_value(link, '$.SpeedBand') as int64), 0)
+            as speed_band_for_metrics,
+
         -- authoritative snapshot time from payload.lastUpdatedTime (SGT
         -- wall-clock) pinned to Asia/Singapore -> true UTC instant. Constant
         -- within a batch. Ordered after the casts to satisfy sqlfluff ST06.
