@@ -1,0 +1,21 @@
+version: 2
+
+models:
+  - name: dim_planning_area
+    description: >
+      One row per URA planning area (55). The spatial hub: boundary GEOGRAPHY for
+      point-in-area tagging, plus region and area_sqkm. planning_area is the natural PK.
+    columns:
+      - name: planning_area
+        description: "Natural key, upper-case (e.g. BEDOK). Unique + not null = valid PK."
+        tests:
+          - unique
+          - not_null
+      - name: region
+        description: "URA region (e.g. EAST REGION)."
+      - name: boundary
+        description: "Area polygon as GEOGRAPHY (from ST_GEOGFROMTEXT ... make_valid)."
+        tests:
+          - not_null
+      - name: area_sqkm
+        description: "ST_AREA(boundary) / 1e6 — planning-area size in square kilometres."
