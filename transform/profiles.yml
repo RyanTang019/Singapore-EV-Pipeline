@@ -11,6 +11,16 @@ transform:
       location: "{{ env_var('GCP_REGION') }}"
       threads: 4
 
+    # GitHub Actions: WIF supplies short-lived ADC credentials. Each run uses a
+    # unique base schema and deletes every generated dataset in an always() step.
+    ci:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: "{{ env_var('DBT_CI_SCHEMA', 'ci') }}"
+      location: "{{ env_var('GCP_REGION') }}"
+      threads: 4
+
     # Production (on the VM): authenticates with the service-account key.
     # Base schema "prod" + a model's +schema → prod_staging, prod_marts.
     prod:

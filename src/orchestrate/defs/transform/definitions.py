@@ -5,7 +5,8 @@ runs `dbt build` (models + tests). Wrapped in a `@definitions` function (rather 
 module-level asset) so the resource binds in the same Definitions and the asset isn't also
 collected loose — load_from_defs_folder discovers and merges this with the ingestion defs.
 
-`dbt_build_schedule` runs the full build every 6 hours (SGT), at :15 past the hour. The :15
+`dbt_build_schedule` runs the production build every 6 hours (SGT), at :15 past the hour. dbt unit
+tests run in WIF-authenticated CI, so production excludes that resource type. The :15
 offset keeps it off ingestion's :00/:30 boundaries, so it fires alone — after the :00 ingestion
 tick has finished — rather than being enqueued at the same instant. dagster.yaml's
 max_concurrent_runs=1 still serializes everything on the 4GB VM as a backstop.
@@ -24,6 +25,8 @@ from dagster_dbt import DbtCliResource, dbt_assets
 
 from .project import DBT_TARGET, EvDbtTranslator, ev_dbt_project
 
+DBT_PROD_BUILD_ARGS = ["build", "--exclude-resource-type", "unit_test"]
+
 
 @definitions
 def transform_defs() -> Definitions:
@@ -32,7 +35,7 @@ def transform_defs() -> Definitions:
         dagster_dbt_translator=EvDbtTranslator(),
     )
     def dbt_models(context: AssetExecutionContext, dbt: DbtCliResource):
-        yield from dbt.cli(["build"], context=context).stream()
+        yield from dbt.cli(DBT_PROD_BUILD_ARGS, context=context).stream()
 
     dbt_build_job = define_asset_job(
         name="dbt_build_job",

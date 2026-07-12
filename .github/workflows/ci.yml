@@ -13,6 +13,9 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
@@ -38,5 +41,38 @@ jobs:
           BQ_DATASET_RAW: dummy_raw
         run: uv run --group dev dbt parse --project-dir transform --profiles-dir transform
 
+      - id: auth
+        name: Authenticate to GCP (WIF)
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: sg-pipeline-dev
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SA }}
+
+      - name: Run dbt unit tests
+        env:
+          GCP_PROJECT_ID: sg-pipeline-dev
+          GCP_REGION: asia-southeast1
+          BQ_DATASET_RAW: unused_ci_raw
+          DBT_CI_SCHEMA: ci_${{ github.run_id }}_${{ github.run_attempt }}
+        run: >-
+          uv run --group dev dbt build --select "test_type:unit"
+          --project-dir transform --profiles-dir transform --target ci
+
       - name: Run pytest
         run: uv run --group dev pytest
+
+      - name: Drop CI datasets
+        if: ${{ always() && steps.auth.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          GCP_PROJECT_ID: sg-pipeline-dev
+          DBT_CI_SCHEMA: ci_${{ github.run_id }}_${{ github.run_attempt }}
+        run: >-
+          uv run --group dev python -c
+          'import os;
+          from google.cloud import bigquery;
+          client = bigquery.Client(project=os.environ["GCP_PROJECT_ID"]);
+          base = os.environ["DBT_CI_SCHEMA"];
+          [client.delete_dataset(f"{client.project}.{base}{suffix}", delete_contents=True, not_found_ok=True)
+          for suffix in ("", "_staging", "_intermediate", "_marts", "_seed")]'

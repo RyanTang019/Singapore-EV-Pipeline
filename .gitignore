@@ -33,6 +33,7 @@ dist/
 .cache
 .pytest_cache/
 htmlcov/
+gha-creds-*.json
 
 # Type checkers
 .mypy_cache/
