@@ -1,0 +1,79 @@
+version: 2
+
+models:
+  - name: rpt_ev_availability_current
+    description: >
+      Latest EV availability batch for Looker current-state scorecards and point maps. One row per
+      postal_code; as_of_sgt is text by design so historical date controls cannot filter it.
+    columns:
+      - name: location_availability_key
+        tests: [unique, not_null]
+      - name: batch_id
+        tests: [not_null]
+      - name: postal_code
+        tests: [not_null]
+      - name: planning_area
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_planning_area')
+                field: planning_area
+              config:
+                where: "planning_area is not null"
+      - name: availability_rate
+        description: "Available connectors / total connectors, in the range 0–1."
+      - name: location
+        description: "BigQuery GEOGRAPHY point used by the Looker bubble map."
+
+  - name: rpt_carpark_availability_current
+    description: >
+      Latest carpark availability batch for Looker current-state scorecards and point maps. One row
+      per carpark for car-lot type C only; as_of_sgt is deliberately text.
+    columns:
+      - name: carpark_availability_key
+        tests: [unique, not_null]
+      - name: batch_id
+        tests: [not_null]
+      - name: carpark_id
+        tests: [unique, not_null]
+      - name: lot_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['C']
+      - name: planning_area
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_planning_area')
+                field: planning_area
+              config:
+                where: "planning_area is not null"
+      - name: available_lots
+        tests: [not_null]
+      - name: location
+        description: "BigQuery GEOGRAPHY point used by the Looker bubble map."
+
+  - name: rpt_traffic_congestion_current
+    description: >
+      Latest traffic-congestion batch joined to planning-area boundaries for Looker's filled map.
+      One row per planning_area; as_of_sgt is deliberately text.
+    columns:
+      - name: traffic_congestion_key
+        tests: [unique, not_null]
+      - name: batch_id
+        tests: [not_null]
+      - name: planning_area
+        tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_planning_area')
+                field: planning_area
+      - name: congested_link_rate
+        description: "Fraction of measured links with speed_band <= 2, in the range 0–1."
+      - name: boundary
+        description: "Planning-area GEOGRAPHY polygon used by the Looker filled map."
+        tests: [not_null]

@@ -40,6 +40,9 @@ def test_dbt_models_discovered_as_assets():
         "intermediate/int_traffic_links",
         "marts/fct_carpark_availability",
         "marts/fct_traffic_congestion",
+        "marts/rpt_ev_availability_current",
+        "marts/rpt_carpark_availability_current",
+        "marts/rpt_traffic_congestion_current",
     ]:
         assert k in keys, k
 
@@ -70,6 +73,18 @@ def test_carpark_and_traffic_facts_downstream_of_ingestion():
     assert AssetKey(["staging", "stg_traffic_speed_bands"]) in links.parent_keys
     tc = _graph().get(AssetKey(["marts", "fct_traffic_congestion"]))
     assert AssetKey(["intermediate", "int_traffic_links"]) in tc.parent_keys
+
+
+def test_current_reporting_assets_follow_their_facts():
+    ev = _graph().get(AssetKey(["marts", "rpt_ev_availability_current"]))
+    assert AssetKey(["marts", "fct_ev_location_availability"]) in ev.parent_keys
+
+    cp = _graph().get(AssetKey(["marts", "rpt_carpark_availability_current"]))
+    assert AssetKey(["marts", "fct_carpark_availability"]) in cp.parent_keys
+
+    traffic = _graph().get(AssetKey(["marts", "rpt_traffic_congestion_current"]))
+    assert AssetKey(["marts", "fct_traffic_congestion"]) in traffic.parent_keys
+    assert AssetKey(["marts", "dim_planning_area"]) in traffic.parent_keys
 
 
 def test_dbt_build_schedule_registered():
