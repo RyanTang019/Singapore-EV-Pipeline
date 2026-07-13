@@ -12,6 +12,7 @@ import pytest
 from dagster import AssetKey, DefaultScheduleStatus, load_from_defs_folder
 
 import orchestrate
+from orchestrate.defs.transform.definitions import DBT_PROD_BUILD_ARGS
 
 _ROOT = Path(orchestrate.__file__).resolve().parents[2]
 MANIFEST = _ROOT / "transform" / "target" / "manifest.json"
@@ -102,3 +103,7 @@ def test_dbt_build_job_selects_the_dbt_models():
     selected = {"/".join(k.path) for k in job.asset_layer.executable_asset_keys}
     assert "staging/stg_ev_charger_availability" in selected
     assert "marts/fct_ev_location_availability" in selected
+
+
+def test_prod_dbt_build_excludes_unit_tests_owned_by_ci():
+    assert DBT_PROD_BUILD_ARGS == ["build", "--exclude-resource-type", "unit_test"]
