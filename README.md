@@ -19,21 +19,51 @@ traffic/carpark patterns — lets us ask **where** supply is structurally under-
 The aim is to move from *descriptive* ("here is current charger utilisation") to a *supply–demand
 mismatch* read — identifying under-served areas and the times infrastructure is most strained.
 
+## Prerequisites
+
+- [`uv`](https://docs.astral.sh/uv/) — Python package manager (`brew install uv`). Manages the Python 3.10+ toolchain for you.
+- [`gcloud` CLI](https://cloud.google.com/sdk/docs/install) — for BigQuery authentication (`brew install --cask google-cloud-sdk`).
+- **GCP access** — your Google account needs IAM access to the dev project (`sg-pipeline-dev`) and its `dev_raw` dataset. Ask a project admin to grant it *before* you start; otherwise auth succeeds but every query 403s.
+- An [LTA DataMall](https://datamall.lta.gov.sg/content/datamall/en/request-for-api.html) API key (free, self-serve) for ingestion.
+
 ## Setup
 
-Ensure [`uv`](https://docs.astral.sh/uv/) is installed (`brew install uv`), then run:
+From the repo root:
 
 ```bash
 ./bin/setup
 ```
 
-This installs Python deps, installs lefthook, wires the pre-push hook, and creates a `.env` from `.env.example` if one doesn't exist. Fill in `LTA_API_KEY` and `DEV_SCHEMA_PREFIX` in `.env`, then authenticate to GCP:
+This installs Python deps, installs lefthook, wires the pre-push hook, and creates a `.env` from `.env.example` if one doesn't exist. Then:
 
-```bash
-gcloud auth application-default login
-```
+1. Fill in `.env` — at minimum `LTA_API_KEY` and `DEV_SCHEMA_PREFIX` (`dev_<your_handle>`). Confirm the GCP defaults: `GCP_PROJECT_ID=sg-pipeline-dev`, `GCP_REGION=asia-southeast1`, and **leave `BQ_DATASET_RAW=dev_raw`** (the shared dev landing zone — never `prod_raw`).
+2. Authenticate to BigQuery via Application Default Credentials:
+
+   ```bash
+   gcloud auth application-default login
+   ```
 
 The pre-push hook runs `ruff check` and `pytest -x -q` before every push. To bypass in an emergency: `git push --no-verify`.
+
+## Quickstart — first end-to-end run
+
+The pipeline runs in two stages: **ingest** (Dagster writes raw API payloads to `dev_raw`) → **transform** (dbt reads `dev_raw` and builds your `dev_<handle>_staging` / `_marts`).
+
+1. **Start Dagster locally** (see [Running Dagster](#running-dagster) for why the wrapper):
+
+   ```bash
+   ./bin/dg-dev
+   ```
+
+2. **Materialize the ingestion assets** to populate `dev_raw`. In the Dagster UI (http://localhost:3000), materialize the three source assets — `ev_charger_availability`, `traffic_speed_bands`, `carpark_availability`.
+
+3. **Build the dbt models** (reads `dev_raw`, writes your dev schemas):
+
+   ```bash
+   ./bin/dbt build
+   ```
+
+   Use `build`, not `run` — `build` also loads the `planning_areas` seed that the spatial models (`dim_planning_area`, the `int_*_tagged` models) depend on, and runs the tests.
 
 ## Project Structure
 
@@ -66,8 +96,12 @@ Use the local wrapper (a SQLite Dagster instance that bypasses the VM-only `dags
 ## Running dbt
 
 ```bash
-./bin/dbt run      # wrapper: applies --profiles-dir/--project-dir transform + .env
+./bin/dbt build    # wrapper: applies --profiles-dir/--project-dir transform + .env
 ```
+
+`build` loads seeds, runs models, and runs tests in DAG order — prefer it over bare `run`,
+which skips the `planning_areas` seed the spatial models depend on. Defaults to the `dev`
+target; production uses `./bin/dbt build --target prod`.
 
 ## Infrastructure
 
@@ -108,6 +142,7 @@ env var. **Always point local ingestion at the shared dev landing zone — never
 ```bash
 # .env (local dev) — authenticate to BigQuery via ADC, not a key file:
 GCP_PROJECT_ID=sg-pipeline-dev
+GCP_REGION=asia-southeast1      # dbt profiles.yml reads this for the BigQuery location
 BQ_DATASET_RAW=dev_raw          # shared landing zone (all devs write here)
 DEV_SCHEMA_PREFIX=dev_<handle>  # your private staging/marts (dbt appends _staging/_marts)
 LTA_API_KEY=...                 # your own LTA DataMall key
