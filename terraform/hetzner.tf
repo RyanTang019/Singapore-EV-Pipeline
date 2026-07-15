@@ -49,6 +49,14 @@ resource "hcloud_server" "dagster" {
   image       = "ubuntu-26.04"
   location    = "fsn1"
 
+  # Cloud-init only runs when the VM is created. The deploy script is refreshed
+  # on existing hosts by CI, so changing its bootstrap copy must not replace a
+  # running server. Force an explicit replacement when other cloud-init changes
+  # genuinely need to be applied to an existing VM.
+  lifecycle {
+    ignore_changes = [user_data]
+  }
+
   ssh_keys = [hcloud_ssh_key.developer_1.id, hcloud_ssh_key.developer_2.id]
 
   public_net {
@@ -69,23 +77,8 @@ resource "hcloud_server" "dagster" {
     write_files:
       - path: /opt/deploy/deploy.sh
         permissions: "0755"
-        content: |
-          #!/usr/bin/env bash
-          set -euo pipefail
-          DIR=/opt/dagster
-          GCLOUD=/opt/google-cloud-sdk/bin/gcloud
-
-          [ -f /opt/deploy/docker-compose.yml.new ] && mv /opt/deploy/docker-compose.yml.new $DIR/docker-compose.yml
-          [ -f /opt/deploy/dagster-sa-key.json.new ] && mv /opt/deploy/dagster-sa-key.json.new $DIR/dagster-sa-key.json
-          [ -f /opt/deploy/.env.deploy.new ] && mv /opt/deploy/.env.deploy.new $DIR/.env.deploy
-
-          $GCLOUD auth activate-service-account --key-file=$DIR/dagster-sa-key.json
-          $GCLOUD secrets versions access latest --secret=dagster-env --project=${var.project_id} > $DIR/.env
-
-          cd $DIR
-          docker compose --env-file .env --env-file .env.deploy pull
-          docker compose --env-file .env --env-file .env.deploy up -d
-          docker image prune -f --filter "until=72h"
+        encoding: b64
+        content: ${base64encode(file("${path.module}/deploy.sh"))}
 
     runcmd:
       - mkdir -p /opt/dagster /opt/deploy
