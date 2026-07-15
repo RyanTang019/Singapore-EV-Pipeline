@@ -98,6 +98,13 @@ jobs:
           scp -i ~/.ssh/deploy_key \
             /tmp/.env.deploy \
             deploy@${{ secrets.DEPLOY_HOST }}:/opt/deploy/.env.deploy.new
+          scp -i ~/.ssh/deploy_key \
+            terraform/deploy.sh \
+            deploy@${{ secrets.DEPLOY_HOST }}:/opt/deploy/deploy.sh.new
 
       - name: Trigger deploy
-        run: ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} /opt/deploy/deploy.sh
+        run: |
+          ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} \
+            'chmod 0755 /opt/deploy/deploy.sh.new && \
+            mv /opt/deploy/deploy.sh.new /opt/deploy/deploy.sh && \
+            /opt/deploy/deploy.sh'
