@@ -4,7 +4,10 @@
 -- per-link dedupe CTE in fct_traffic_congestion
 -- (row_number() over (partition by batch_id, link_id order by ...) = 1)
 -- BEFORE the area aggregation.
-select batch_id, link_id, count(*) as n
+select
+    batch_id,
+    link_id,
+    count(*) as n
 from {{ ref('stg_traffic_speed_bands') }}
 group by batch_id, link_id
 having count(*) > 1

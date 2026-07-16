@@ -1,4 +1,4 @@
--- A current model's sole batch must match the latest snapshot in its parent fact.
+-- A current model's sole batch must match its parent fact's latest snapshot.
 with expected_ev as (
     select batch_id
     from {{ ref('fct_ev_location_availability') }}
@@ -23,21 +23,27 @@ expected_traffic as (
     limit 1
 )
 
-select 'rpt_ev_availability_current' as model_name, c.batch_id
+select
+    'rpt_ev_availability_current' as model_name,
+    c.batch_id
 from {{ ref('rpt_ev_availability_current') }} as c
 cross join expected_ev as expected
 where c.batch_id != expected.batch_id
 
 union all
 
-select 'rpt_carpark_availability_current' as model_name, c.batch_id
+select
+    'rpt_carpark_availability_current' as model_name,
+    c.batch_id
 from {{ ref('rpt_carpark_availability_current') }} as c
 cross join expected_carpark as expected
 where c.batch_id != expected.batch_id
 
 union all
 
-select 'rpt_traffic_congestion_current' as model_name, c.batch_id
+select
+    'rpt_traffic_congestion_current' as model_name,
+    c.batch_id
 from {{ ref('rpt_traffic_congestion_current') }} as c
 cross join expected_traffic as expected
 where c.batch_id != expected.batch_id

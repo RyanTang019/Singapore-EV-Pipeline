@@ -100,13 +100,29 @@ unit_tests:
     model: fct_traffic_congestion
     given:
       - input: ref('stg_traffic_speed_bands')
-        rows:
-          - {batch_id: "b1", link_id: "L1", speed_band: 2, speed_band_for_metrics: 2, is_no_reading: false, snapshot_time: "2026-01-01 04:00:00+00"}
-          - {batch_id: "b1", link_id: "L2", speed_band: 0, speed_band_for_metrics: null, is_no_reading: true, snapshot_time: "2026-01-01 04:00:00+00"}
+        format: sql
+        rows: |
+          select
+              'b1' as batch_id,
+              'L1' as link_id,
+              2 as speed_band,
+              2 as speed_band_for_metrics,
+              false as is_no_reading,
+              timestamp '2026-01-01 04:00:00+00' as snapshot_time
+          union all
+          select
+              'b1',
+              'L2',
+              0,
+              cast(null as int64),
+              true,
+              timestamp '2026-01-01 04:00:00+00'
       - input: ref('int_traffic_links')
-        rows:
-          - {link_id: "L1", planning_area: "AREA_A"}
-          - {link_id: "L2", planning_area: "AREA_A"}
+        format: sql
+        rows: |
+          select 'L1' as link_id, 'AREA_A' as planning_area
+          union all
+          select 'L2', 'AREA_A'
     expect:
       rows:
         - {planning_area: "AREA_A", link_count: 1, congested_link_rate: 1.0, no_reading_link_count: 1, mean_speed_band: 2.0}
