@@ -54,6 +54,9 @@ terraform/terraform.tfvars
 terraform/.terraform
 terraform/tf_plan
 
+# Local vendor data — normalized/generated seeds are tracked separately
+data/vendor/singstat/
+
 #docs
 docs/
 
