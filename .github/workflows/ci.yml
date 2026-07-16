@@ -24,10 +24,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Lint
-        run: uv run --group dev ruff check src tests
+        run: uv run --group dev ruff check src tests scripts
 
       - name: SQL Lint
-        run: uv run --group dev sqlfluff lint transform/models transform/macros
+        run: uv run --group dev sqlfluff lint transform/models transform/macros transform/tests
 
       - name: Build dbt manifest
         env:
@@ -49,6 +49,22 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SA }}
 
+      - name: Create isolated CI datasets
+        env:
+          GCP_PROJECT_ID: sg-pipeline-dev
+          GCP_REGION: asia-southeast1
+          DBT_CI_SCHEMA: ci_${{ github.run_id }}_${{ github.run_attempt }}
+        run: >-
+          uv run --group dev python -c
+          'import os;
+          from google.cloud import bigquery;
+          client = bigquery.Client(project=os.environ["GCP_PROJECT_ID"]);
+          base = os.environ["DBT_CI_SCHEMA"];
+          region = os.environ["GCP_REGION"];
+          [(setattr(dataset := bigquery.Dataset(f"{client.project}.{base}{suffix}"), "location", region),
+          client.create_dataset(dataset, exists_ok=True))
+          for suffix in ("", "_staging", "_intermediate", "_marts", "_seed")]'
+
       - name: Run dbt unit tests
         env:
           GCP_PROJECT_ID: sg-pipeline-dev
@@ -56,7 +72,7 @@ jobs:
           BQ_DATASET_RAW: unused_ci_raw
           DBT_CI_SCHEMA: ci_${{ github.run_id }}_${{ github.run_attempt }}
         run: >-
-          uv run --group dev dbt build --select "test_type:unit"
+          uv run --group dev dbt test --select "resource_type:unit_test"
           --project-dir transform --profiles-dir transform --target ci
 
       - name: Run pytest

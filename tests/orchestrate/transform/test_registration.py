@@ -44,6 +44,14 @@ def test_dbt_models_discovered_as_assets():
         "marts/rpt_ev_availability_current",
         "marts/rpt_carpark_availability_current",
         "marts/rpt_traffic_congestion_current",
+        "seed/planning_area_population",
+        "seed/planning_area_population_releases",
+        "marts/stg_planning_area_population",
+        "marts/stg_planning_area_population_releases",
+        "marts/fct_planning_area_population",
+        "marts/fct_supply_demand_daily",
+        "marts/mart_supply_demand_gap",
+        "marts/rpt_supply_demand_gap_current",
     ]:
         assert k in keys, k
 
@@ -86,6 +94,46 @@ def test_current_reporting_assets_follow_their_facts():
     traffic = _graph().get(AssetKey(["marts", "rpt_traffic_congestion_current"]))
     assert AssetKey(["marts", "fct_traffic_congestion"]) in traffic.parent_keys
     assert AssetKey(["marts", "dim_planning_area"]) in traffic.parent_keys
+
+
+def test_population_and_supply_demand_lineage():
+    graph = _graph()
+
+    population_staging = graph.get(
+        AssetKey(["marts", "stg_planning_area_population"])
+    )
+    assert AssetKey(["seed", "planning_area_population"]) in population_staging.parent_keys
+
+    release_staging = graph.get(
+        AssetKey(["marts", "stg_planning_area_population_releases"])
+    )
+    assert (
+        AssetKey(["seed", "planning_area_population_releases"])
+        in release_staging.parent_keys
+    )
+
+    population_fact = graph.get(
+        AssetKey(["marts", "fct_planning_area_population"])
+    )
+    assert AssetKey(["marts", "stg_planning_area_population"]) in population_fact.parent_keys
+    assert (
+        AssetKey(["marts", "stg_planning_area_population_releases"])
+        in population_fact.parent_keys
+    )
+    assert AssetKey(["marts", "dim_planning_area"]) in population_fact.parent_keys
+
+    daily_fact = graph.get(AssetKey(["marts", "fct_supply_demand_daily"]))
+    assert AssetKey(["marts", "fct_ev_location_availability"]) in daily_fact.parent_keys
+    assert AssetKey(["marts", "dim_planning_area"]) in daily_fact.parent_keys
+    assert AssetKey(["marts", "fct_planning_area_population"]) in daily_fact.parent_keys
+
+    gap_mart = graph.get(AssetKey(["marts", "mart_supply_demand_gap"]))
+    assert AssetKey(["marts", "fct_supply_demand_daily"]) in gap_mart.parent_keys
+
+    current_report = graph.get(
+        AssetKey(["marts", "rpt_supply_demand_gap_current"])
+    )
+    assert AssetKey(["marts", "mart_supply_demand_gap"]) in current_report.parent_keys
 
 
 def test_dbt_build_schedule_registered():

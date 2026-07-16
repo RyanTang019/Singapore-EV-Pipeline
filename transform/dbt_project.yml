@@ -22,6 +22,15 @@ clean-targets:         # directories to be removed by `dbt clean`
   - "target"
   - "dbt_packages"
 
+# Supply-demand quality contract approved from the completed production profile on 2026-07-16.
+# The rank cohort is fixed policy for population_gap_v1, not an empirical quality threshold.
+vars:
+  supply_demand_expected_daily_snapshot_count: 48
+  supply_demand_min_daily_snapshot_coverage: 0.90
+  supply_demand_min_network_location_count: 2600
+  supply_demand_min_network_connector_count: 11000
+  supply_demand_expected_rank_population_size: 55
+
 
 # Configuring models
 # Full documentation: https://docs.getdbt.com/docs/configuring-models
@@ -43,4 +52,3 @@ models:
 seeds:
   transform:
     +schema: seed
-

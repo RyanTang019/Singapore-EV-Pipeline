@@ -36,12 +36,13 @@ unit_tests:
     model: int_ev_tagged
     given:
       - input: ref('stg_ev_charger_availability')
-        rows:
-          - {batch_id: "b1", postal_code: "A00001", longitude: 0.5, latitude: 0.5, snapshot_time: "2026-01-01 18:00:00+00", connector_status: "available"}
-          - {batch_id: "b1", postal_code: "A00002", longitude: 1.5, latitude: 1.5, snapshot_time: "2026-01-01 18:00:00+00", connector_status: "available"}
-          - {batch_id: "b1", postal_code: "A00003", longitude: 0.0, latitude: 1.0, snapshot_time: "2026-01-01 18:00:00+00", connector_status: "available"}
-          - {batch_id: "b1", postal_code: "A00004", longitude: 5.0, latitude: 5.0, snapshot_time: "2026-01-01 18:00:00+00", connector_status: "available"}
-          - {batch_id: "b1", postal_code: "A00005", longitude: 999.0, latitude: 999.0, snapshot_time: "2026-01-01 18:00:00+00", connector_status: "available"}
+        format: sql
+        rows: |
+          select 'b1' as batch_id, 'A00001' as postal_code, 0.5 as longitude, 0.5 as latitude, timestamp '2026-01-01 18:00:00+00' as snapshot_time, 'available' as connector_status
+          union all select 'b1', 'A00002', 1.5, 1.5, timestamp '2026-01-01 18:00:00+00', 'available'
+          union all select 'b1', 'A00003', 0.0, 1.0, timestamp '2026-01-01 18:00:00+00', 'available'
+          union all select 'b1', 'A00004', 5.0, 5.0, timestamp '2026-01-01 18:00:00+00', 'available'
+          union all select 'b1', 'A00005', 999.0, 999.0, timestamp '2026-01-01 18:00:00+00', 'available'
       - input: ref('dim_planning_area')
         format: sql
         rows: |

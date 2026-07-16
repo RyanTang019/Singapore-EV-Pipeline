@@ -1,0 +1,191 @@
+version: 2
+
+seeds:
+  - name: planning_area_population
+    description: >
+      Controlled SingStat resident-population observations at population release and MP2019
+      planning-area grain. A present source '-' is stored as zero, a present 'na' remains NULL,
+      and an area absent from the source fails generation rather than being manufactured.
+    config:
+      column_types:
+        population_release_key: string
+        population_year: int64
+        planning_area: string
+        resident_population: int64
+    columns:
+      - name: population_release_key
+        description: Stable SHA-256 data-identity key shared with the release metadata seed.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('planning_area_population_releases')
+                field: population_release_key
+      - name: population_year
+        description: Calendar year of the population reference date.
+        tests: [not_null]
+      - name: planning_area
+        description: Exact upper-case MP2019 natural key.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_planning_area')
+                field: planning_area
+      - name: resident_population
+        description: >
+          Published resident count. Explicit nil is zero; documented 'na' is NULL and is not
+          imputed.
+
+  - name: planning_area_population_releases
+    description: >
+      One reviewed controlled-source release per reference year, carrying the canonical release
+      key, source identity, date semantics, reconciliation allowance, and raw-file checksum.
+    config:
+      column_types:
+        population_release_key: string
+        population_year: int64
+        source_reference_date: date
+        source_published_date: date
+        source_retrieved_date: date
+        planning_geography_version: string
+        national_resident_population: int64
+        max_national_reconciliation_difference: int64
+        expected_planning_area_row_count: int64
+        generated_planning_area_population_total: int64
+        source_dataset_id: string
+        source_name: string
+        source_url: string
+        source_filename: string
+        source_sha256: string
+    columns:
+      - name: population_release_key
+        description: SHA-256 of the versioned canonical release-identity payload.
+        tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('planning_area_population')
+                field: population_release_key
+      - name: population_year
+        description: Unique reference year for the Spec 2 controlled source.
+        tests: [unique, not_null]
+      - name: source_reference_date
+        description: Date the population measurement describes.
+        tests: [not_null]
+      - name: source_published_date
+        description: Official SingStat publication or last-updated date.
+        tests: [not_null]
+      - name: source_retrieved_date
+        description: Explicit date the project retrieved the official file.
+        tests: [not_null]
+      - name: planning_geography_version
+        description: Boundary vintage, locked to MP2019 for this score version.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['MP2019']
+      - name: national_resident_population
+        description: Independent year-specific national validation anchor.
+        tests: [not_null]
+      - name: max_national_reconciliation_difference
+        description: Owner-reviewed maximum absolute difference from the national anchor.
+        tests: [not_null]
+      - name: expected_planning_area_row_count
+        description: Exact source-coverage contract, 55 for MP2019.
+        tests: [not_null]
+      - name: generated_planning_area_population_total
+        description: Deterministic sum of non-null generated planning-area observations.
+        tests: [not_null]
+      - name: source_dataset_id
+        description: Repository-owned stable lower-snake-case source identity.
+        tests: [not_null]
+      - name: source_name
+        description: Reviewed human-readable SingStat dataset label.
+        tests: [not_null]
+      - name: source_url
+        description: Official TableBuilder source page.
+        tests: [not_null]
+      - name: source_filename
+        description: Canonical local vendor filename used as generator input.
+        tests: [not_null]
+      - name: source_sha256
+        description: Lower-case SHA-256 of the untouched vendor input.
+        tests: [not_null]
+
+models:
+  - name: stg_planning_area_population
+    description: Explicitly typed, unimputed planning-area population seed view.
+    columns:
+      - name: population_key
+        description: MD5 of population_release_key and planning_area.
+        tests: [unique, not_null]
+      - name: population_release_key
+        tests: [not_null]
+      - name: population_year
+        tests: [not_null]
+      - name: planning_area
+        tests: [not_null]
+
+  - name: stg_planning_area_population_releases
+    description: Explicitly typed controlled population release-metadata view.
+    columns:
+      - name: population_release_key
+        tests: [unique, not_null]
+      - name: population_year
+        tests: [unique, not_null]
+
+  - name: fct_planning_area_population
+    description: >
+      Resident population at release and MP2019 planning-area grain. All 55 dimension areas are
+      retained for every release. area_sqkm and population_density_per_sqkm are derived from the
+      seeded MP2019 boundary geometry, not SingStat's official land-area denominator or density.
+    columns:
+      - name: population_key
+        description: Release-aware grain key, MD5 of release key and planning area.
+        tests: [unique, not_null]
+      - name: population_year
+        tests: [not_null]
+      - name: population_release_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_planning_area_population_releases')
+                field: population_release_key
+      - name: source_reference_date
+        tests: [not_null]
+      - name: source_published_date
+        tests: [not_null]
+      - name: source_retrieved_date
+        tests: [not_null]
+      - name: planning_geography_version
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['MP2019']
+      - name: planning_area
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_planning_area')
+                field: planning_area
+      - name: region
+        tests: [not_null]
+      - name: area_sqkm
+        description: ST_AREA of the seeded MP2019 boundary divided by 1e6.
+        tests: [not_null]
+      - name: resident_population
+        description: Published resident count, nullable only for documented missing source values.
+      - name: population_density_per_sqkm
+        description: Boundary-derived resident_population / area_sqkm; not official density.
+      - name: population_data_status
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['reported', 'reported_zero', 'missing']
