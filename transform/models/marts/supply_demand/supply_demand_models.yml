@@ -1,0 +1,514 @@
+version: 2
+
+models:
+  - name: fct_supply_demand_daily
+    description: >
+      One row per Singapore date and MP2019 planning area. Canonicalizes duplicate source times,
+      rejects partial network snapshots, preserves continuous outage dates, selects population by
+      reference date, and publishes explanatory daily supply measures without scoring them.
+    columns:
+      - name: supply_demand_daily_key
+        description: MD5 of snapshot_date and planning_area; proves the daily-area grain.
+        tests: [unique, not_null]
+      - name: snapshot_date
+        tests: [not_null]
+      - name: planning_area
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_planning_area')
+                field: planning_area
+      - name: boundary
+        tests: [not_null]
+      - name: region
+        tests: [not_null]
+      - name: area_sqkm
+        description: Area from the seeded MP2019 boundary geometry, in square kilometres.
+        tests: [not_null]
+      - name: population_release_key
+        description: Latest compatible population release selected by reference date.
+      - name: population_density_per_sqkm
+        description: Boundary-derived project density, not official SingStat density.
+      - name: population_data_status
+        description: Reported, reported zero, missing, or NULL when no release is eligible.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['reported', 'reported_zero', 'missing']
+      - name: observed_daily_ingestion_batch_count
+        tests: [not_null]
+      - name: duplicate_daily_ingestion_batch_count
+        tests: [not_null]
+      - name: observed_daily_snapshot_count
+        tests: [not_null]
+      - name: qualified_daily_snapshot_count
+        tests: [not_null]
+      - name: rejected_daily_snapshot_count
+        tests: [not_null]
+      - name: rejected_below_location_and_connector_bounds_snapshot_count
+        tests: [not_null]
+      - name: rejected_below_location_bound_only_snapshot_count
+        tests: [not_null]
+      - name: rejected_below_connector_bound_only_snapshot_count
+        tests: [not_null]
+      - name: expected_daily_snapshot_count
+        tests: [not_null]
+      - name: snapshot_coverage_rate
+        tests: [not_null]
+      - name: is_complete_day
+        tests: [not_null]
+      - name: daily_data_quality_status
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['publishable', 'open_day', 'insufficient_snapshot_coverage']
+
+  - name: mart_supply_demand_gap
+    description: >
+      Versioned planning-area residential supply-demand mismatch. Scores only complete
+      quality-approved 55-area cohorts and preserves every explanatory daily input.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - {name: snapshot_date, data_type: date, tests: [not_null]}
+      - {name: planning_area, data_type: string, tests: [not_null]}
+      - {name: region, data_type: string}
+      - {name: boundary, data_type: geography}
+      - {name: area_sqkm, data_type: float64}
+      - {name: population_year, data_type: int64}
+      - {name: population_release_key, data_type: string}
+      - {name: source_reference_date, data_type: date}
+      - {name: source_published_date, data_type: date}
+      - {name: source_retrieved_date, data_type: date}
+      - {name: planning_geography_version, data_type: string}
+      - {name: resident_population, data_type: int64}
+      - {name: population_density_per_sqkm, data_type: float64}
+      - {name: population_data_status, data_type: string}
+      - {name: observed_daily_ingestion_batch_count, data_type: int64}
+      - {name: duplicate_daily_ingestion_batch_count, data_type: int64}
+      - {name: observed_daily_snapshot_count, data_type: int64}
+      - {name: qualified_daily_snapshot_count, data_type: int64}
+      - {name: rejected_daily_snapshot_count, data_type: int64}
+      - {name: rejected_below_location_and_connector_bounds_snapshot_count, data_type: int64}
+      - {name: rejected_below_location_bound_only_snapshot_count, data_type: int64}
+      - {name: rejected_below_connector_bound_only_snapshot_count, data_type: int64}
+      - {name: expected_daily_snapshot_count, data_type: int64}
+      - {name: snapshot_coverage_rate, data_type: float64}
+      - {name: is_complete_day, data_type: bool}
+      - {name: daily_data_quality_status, data_type: string}
+      - {name: latest_qualified_location_count, data_type: int64}
+      - {name: latest_qualified_connector_count, data_type: int64}
+      - {name: latest_qualified_connector_density_per_sqkm, data_type: float64}
+      - {name: available_connectors_observed, data_type: int64}
+      - {name: occupied_connectors_observed, data_type: int64}
+      - {name: unavailable_connectors_observed, data_type: int64}
+      - {name: unknown_connectors_observed, data_type: int64}
+      - {name: total_connectors_observed, data_type: int64}
+      - {name: average_available_connectors_per_qualified_snapshot, data_type: float64}
+      - {name: effective_available_connectors_per_sqkm, data_type: float64}
+      - {name: daily_availability_rate, data_type: float64}
+      - {name: daily_occupied_rate, data_type: float64}
+      - {name: daily_unavailable_rate, data_type: float64}
+      - {name: daily_unknown_rate, data_type: float64}
+      - {name: supply_demand_daily_key, data_type: string, tests: [unique, not_null]}
+      - {name: rank_population_size, data_type: int64, tests: [not_null]}
+      - {name: expected_rank_population_size, data_type: int64, tests: [not_null]}
+      - {name: demand_index, data_type: float64}
+      - {name: supply_index, data_type: float64}
+      - {name: mismatch_score, data_type: float64}
+      - name: service_band
+        data_type: string
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['underserved', 'broadly_balanced', 'overserved']
+      - name: score_status
+        data_type: string
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - scored
+                  - daily_data_not_publishable
+                  - missing_population
+                  - incomplete_rank_cohort
+                  - no_population_snapshot_as_of_date
+      - name: score_version
+        data_type: string
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['population_gap_v1']
+      - {name: underserved_threshold, data_type: float64, tests: [not_null]}
+      - {name: overserved_threshold, data_type: float64, tests: [not_null]}
+
+  - name: rpt_supply_demand_gap_current
+    description: >
+      Latest completed supply-publishable date, emitted only when all 55 planning areas are fully
+      scored. Contains no temporal-typed columns so Looker date controls cannot hide the page.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - {name: as_of_date_sgt, data_type: string, description: Singapore source date (YYYY-MM-DD)., tests: [not_null]}
+      - {name: planning_area, data_type: string, description: MP2019 planning-area name., tests: [unique, not_null]}
+      - {name: region, data_type: string, description: Planning region.}
+      - {name: boundary, data_type: geography, description: MP2019 filled-map boundary., tests: [not_null]}
+      - {name: area_sqkm, data_type: float64, description: Boundary-derived area in square kilometres.}
+      - {name: population_year, data_type: int64, description: Resident-population reference year.}
+      - {name: population_release_key, data_type: string, description: Versioned population release identity.}
+      - {name: population_reference, data_type: string, description: Human-readable resident-population reference month.}
+      - {name: population_publication_reference, data_type: string, description: Human-readable official publication date.}
+      - {name: population_retrieval_reference, data_type: string, description: Human-readable controlled-source retrieval date.}
+      - {name: planning_geography_version, data_type: string, description: Planning-boundary vintage used by the score.}
+      - {name: resident_population, data_type: int64, description: Official resident count for the planning area.}
+      - {name: population_density_per_sqkm, data_type: float64, description: Resident population divided by project boundary area.}
+      - {name: population_data_status, data_type: string, description: Reported-value status from the controlled source.}
+      - {name: observed_daily_ingestion_batch_count, data_type: int64, description: Represented ingestion batches before source-time deduplication.}
+      - {name: duplicate_daily_ingestion_batch_count, data_type: int64, description: Duplicate ingestion batches excluded from daily measures.}
+      - {name: observed_daily_snapshot_count, data_type: int64, description: Canonical distinct source snapshots observed.}
+      - {name: qualified_daily_snapshot_count, data_type: int64, description: Canonical source snapshots passing network bounds.}
+      - {name: rejected_daily_snapshot_count, data_type: int64, description: Canonical snapshots failing network bounds.}
+      - {name: rejected_below_location_and_connector_bounds_snapshot_count, data_type: int64, description: Rejected snapshots below both network bounds.}
+      - {name: rejected_below_location_bound_only_snapshot_count, data_type: int64, description: Rejected snapshots below only the location bound.}
+      - {name: rejected_below_connector_bound_only_snapshot_count, data_type: int64, description: Rejected snapshots below only the connector bound.}
+      - {name: expected_daily_snapshot_count, data_type: int64, description: Versioned expected daily source cadence.}
+      - {name: snapshot_coverage_rate, data_type: float64, description: Qualified snapshots divided by expected snapshots, capped at one.}
+      - {name: is_complete_day, data_type: bool, description: True only for closed publishable Singapore days.}
+      - {name: daily_data_quality_status, data_type: string, description: Daily source-coverage publication status.}
+      - {name: latest_qualified_location_count, data_type: int64, description: End-of-day observed charging-location count.}
+      - {name: latest_qualified_connector_count, data_type: int64, description: End-of-day observed connector count.}
+      - {name: latest_qualified_connector_density_per_sqkm, data_type: float64, description: End-of-day connector count per square kilometre.}
+      - {name: available_connectors_observed, data_type: int64, description: Available-connector observations across qualified snapshots.}
+      - {name: occupied_connectors_observed, data_type: int64, description: Occupied-connector observations across qualified snapshots.}
+      - {name: unavailable_connectors_observed, data_type: int64, description: Unavailable-connector observations across qualified snapshots.}
+      - {name: unknown_connectors_observed, data_type: int64, description: Unknown-state connector observations across qualified snapshots.}
+      - {name: total_connectors_observed, data_type: int64, description: All connector observations across qualified snapshots.}
+      - {name: average_available_connectors_per_qualified_snapshot, data_type: float64, description: Mean accessible supply across qualified snapshots.}
+      - {name: effective_available_connectors_per_sqkm, data_type: float64, description: Mean accessible supply per square kilometre used for ranking.}
+      - {name: daily_availability_rate, data_type: float64, description: Available share of all connector observations.}
+      - {name: daily_occupied_rate, data_type: float64, description: Occupied share of all connector observations.}
+      - {name: daily_unavailable_rate, data_type: float64, description: Unavailable share of all connector observations.}
+      - {name: daily_unknown_rate, data_type: float64, description: Unknown-state share of all connector observations.}
+      - {name: supply_demand_daily_key, data_type: string, description: Stable Singapore-date and planning-area grain key., tests: [unique, not_null]}
+      - {name: rank_population_size, data_type: int64, description: Eligible areas observed in the ranking cohort., tests: [not_null]}
+      - {name: expected_rank_population_size, data_type: int64, description: Fixed version-one cohort size of 55., tests: [not_null]}
+      - {name: demand_index, data_type: float64, description: Population-density percentile rank., tests: [not_null]}
+      - {name: supply_index, data_type: float64, description: Effective available-supply percentile rank., tests: [not_null]}
+      - {name: mismatch_score, data_type: float64, description: Demand index minus supply index., tests: [not_null]}
+      - name: service_band
+        data_type: string
+        description: Versioned underserved, balanced, or overserved classification.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['underserved', 'broadly_balanced', 'overserved']
+      - name: score_status
+        data_type: string
+        description: Scoring eligibility; restricted to scored at this reporting boundary.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['scored']
+      - name: score_version
+        data_type: string
+        description: Immutable scoring-policy version.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['population_gap_v1']
+      - {name: underserved_threshold, data_type: float64, description: Inclusive positive mismatch boundary., tests: [not_null]}
+      - {name: overserved_threshold, data_type: float64, description: Inclusive negative mismatch boundary., tests: [not_null]}
+
+unit_tests:
+  - name: fct_supply_demand_daily_temporal_deduplication_and_completeness
+    description: >
+      Proves the continuous two-area spine, as-of population selection, duplicate canonicalization,
+      all three rejection reasons, zero-observation and zero-qualified behavior, area zero-fill,
+      and deterministic open-day status.
+    model: fct_supply_demand_daily
+    overrides:
+      vars:
+        supply_demand_as_of_date: '2026-07-14'
+        supply_demand_expected_daily_snapshot_count: 2
+        supply_demand_min_daily_snapshot_coverage: 0.5
+        supply_demand_min_network_location_count: 2
+        supply_demand_min_network_connector_count: 2
+    given:
+      - input: ref('dim_planning_area')
+        format: sql
+        rows: |
+          select
+              'AREA_A' as planning_area,
+              'R' as region,
+              st_geogfromtext('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))') as boundary,
+              cast(4.0 as float64) as area_sqkm
+          union all
+          select
+              'AREA_B',
+              'R',
+              st_geogfromtext('POLYGON((2 0, 2 2, 4 2, 4 0, 2 0))'),
+              cast(4.0 as float64)
+      - input: ref('fct_planning_area_population')
+        format: sql
+        rows: |
+          select 2024 as population_year, 'old_key' as population_release_key, date '2026-07-09' as source_reference_date, date '2026-07-10' as source_published_date, date '2026-07-11' as source_retrieved_date, 'MP2019' as planning_geography_version, 'AREA_A' as planning_area, 100 as resident_population, 25.0 as population_density_per_sqkm, 'reported' as population_data_status
+          union all select 2024, 'old_key', date '2026-07-09', date '2026-07-10', date '2026-07-11', 'MP2019', 'AREA_B', 0, 0.0, 'reported_zero'
+          union all select 2025, 'new_key', date '2026-07-12', date '2026-07-13', date '2026-07-14', 'MP2019', 'AREA_A', 120, 30.0, 'reported'
+          union all select 2025, 'new_key', date '2026-07-12', date '2026-07-13', date '2026-07-14', 'MP2019', 'AREA_B', 10, 2.5, 'reported'
+      - input: ref('fct_ev_location_availability')
+        format: sql
+        rows: |
+          select 'q08' as batch_id, 'A08' as postal_code, timestamp '2026-07-07 16:00:00+00' as snapshot_time, timestamp '2026-07-07 16:01:00+00' as ingested_at, date '2026-07-08' as snapshot_date, 'AREA_A' as planning_area, 1 as total_connectors, 1 as available_connectors, 0 as occupied_connectors, 0 as unavailable_connectors
+          union all select 'q08', 'B08', timestamp '2026-07-07 16:00:00+00', timestamp '2026-07-07 16:01:00+00', date '2026-07-08', 'AREA_B', 1, 0, 1, 0
+          union all select 'dup_old', 'A09', timestamp '2026-07-08 16:00:00+00', timestamp '2026-07-08 16:01:00+00', date '2026-07-09', 'AREA_A', 1, 1, 0, 0
+          union all select 'dup_old', 'B09', timestamp '2026-07-08 16:00:00+00', timestamp '2026-07-08 16:01:00+00', date '2026-07-09', 'AREA_B', 1, 0, 1, 0
+          union all select 'dup_new', 'A09', timestamp '2026-07-08 16:00:00+00', timestamp '2026-07-08 16:02:00+00', date '2026-07-09', 'AREA_A', 2, 2, 0, 0
+          union all select 'dup_new', 'B09', timestamp '2026-07-08 16:00:00+00', timestamp '2026-07-08 16:02:00+00', date '2026-07-09', 'AREA_B', 1, 0, 0, 0
+          union all select 'below_both', 'A10', timestamp '2026-07-09 16:00:00+00', timestamp '2026-07-09 16:01:00+00', date '2026-07-10', 'AREA_A', 1, 1, 0, 0
+          union all select 'below_location', 'A12', timestamp '2026-07-11 16:00:00+00', timestamp '2026-07-11 16:01:00+00', date '2026-07-12', 'AREA_A', 2, 1, 1, 0
+          union all select 'below_connector', 'A13x', timestamp '2026-07-12 16:00:00+00', timestamp '2026-07-12 16:01:00+00', date '2026-07-13', 'AREA_A', 0, 0, 0, 0
+          union all select 'below_connector', 'B13x', timestamp '2026-07-12 16:00:00+00', timestamp '2026-07-12 16:01:00+00', date '2026-07-13', 'AREA_B', 0, 0, 0, 0
+          union all select 'q13', 'A13a', timestamp '2026-07-12 16:30:00+00', timestamp '2026-07-12 16:31:00+00', date '2026-07-13', 'AREA_A', 1, 1, 0, 0
+          union all select 'q13', 'A13b', timestamp '2026-07-12 16:30:00+00', timestamp '2026-07-12 16:31:00+00', date '2026-07-13', 'AREA_A', 1, 1, 0, 0
+          union all select 'q14', 'A14', timestamp '2026-07-13 16:00:00+00', timestamp '2026-07-13 16:01:00+00', date '2026-07-14', 'AREA_A', 1, 1, 0, 0
+          union all select 'q14', 'B14', timestamp '2026-07-13 16:00:00+00', timestamp '2026-07-13 16:01:00+00', date '2026-07-14', 'AREA_B', 1, 0, 1, 0
+    expect:
+      rows:
+        - {snapshot_date: '2026-07-08', planning_area: AREA_A, population_release_key: null, observed_daily_ingestion_batch_count: 1, duplicate_daily_ingestion_batch_count: 0, observed_daily_snapshot_count: 1, qualified_daily_snapshot_count: 1, rejected_daily_snapshot_count: 0, rejected_below_location_and_connector_bounds_snapshot_count: 0, rejected_below_location_bound_only_snapshot_count: 0, rejected_below_connector_bound_only_snapshot_count: 0, snapshot_coverage_rate: 0.5, daily_data_quality_status: publishable, latest_qualified_location_count: 1, latest_qualified_connector_count: 1, available_connectors_observed: 1, total_connectors_observed: 1, effective_available_connectors_per_sqkm: 0.25, is_complete_day: true}
+        - {snapshot_date: '2026-07-08', planning_area: AREA_B, population_release_key: null, observed_daily_ingestion_batch_count: 1, duplicate_daily_ingestion_batch_count: 0, observed_daily_snapshot_count: 1, qualified_daily_snapshot_count: 1, rejected_daily_snapshot_count: 0, rejected_below_location_and_connector_bounds_snapshot_count: 0, rejected_below_location_bound_only_snapshot_count: 0, rejected_below_connector_bound_only_snapshot_count: 0, snapshot_coverage_rate: 0.5, daily_data_quality_status: publishable, latest_qualified_location_count: 1, latest_qualified_connector_count: 1, available_connectors_observed: 0, total_connectors_observed: 1, effective_available_connectors_per_sqkm: 0.0, is_complete_day: true}
+        - {snapshot_date: '2026-07-09', planning_area: AREA_A, population_release_key: old_key, observed_daily_ingestion_batch_count: 2, duplicate_daily_ingestion_batch_count: 1, observed_daily_snapshot_count: 1, qualified_daily_snapshot_count: 1, rejected_daily_snapshot_count: 0, rejected_below_location_and_connector_bounds_snapshot_count: 0, rejected_below_location_bound_only_snapshot_count: 0, rejected_below_connector_bound_only_snapshot_count: 0, snapshot_coverage_rate: 0.5, daily_data_quality_status: publishable, latest_qualified_location_count: 1, latest_qualified_connector_count: 2, available_connectors_observed: 2, total_connectors_observed: 2, effective_available_connectors_per_sqkm: 0.5, is_complete_day: true}
+        - {snapshot_date: '2026-07-09', planning_area: AREA_B, population_release_key: old_key, observed_daily_ingestion_batch_count: 2, duplicate_daily_ingestion_batch_count: 1, observed_daily_snapshot_count: 1, qualified_daily_snapshot_count: 1, rejected_daily_snapshot_count: 0, rejected_below_location_and_connector_bounds_snapshot_count: 0, rejected_below_location_bound_only_snapshot_count: 0, rejected_below_connector_bound_only_snapshot_count: 0, snapshot_coverage_rate: 0.5, daily_data_quality_status: publishable, latest_qualified_location_count: 1, latest_qualified_connector_count: 1, available_connectors_observed: 0, total_connectors_observed: 1, effective_available_connectors_per_sqkm: 0.0, is_complete_day: true}
+        - {snapshot_date: '2026-07-10', planning_area: AREA_A, population_release_key: old_key, observed_daily_ingestion_batch_count: 1, duplicate_daily_ingestion_batch_count: 0, observed_daily_snapshot_count: 1, qualified_daily_snapshot_count: 0, rejected_daily_snapshot_count: 1, rejected_below_location_and_connector_bounds_snapshot_count: 1, rejected_below_location_bound_only_snapshot_count: 0, rejected_below_connector_bound_only_snapshot_count: 0, snapshot_coverage_rate: 0.0, daily_data_quality_status: insufficient_snapshot_coverage, latest_qualified_location_count: null, latest_qualified_connector_count: null, available_connectors_observed: null, total_connectors_observed: null, effective_available_connectors_per_sqkm: null, is_complete_day: false}
+        - {snapshot_date: '2026-07-10', planning_area: AREA_B, population_release_key: old_key, observed_daily_ingestion_batch_count: 1, duplicate_daily_ingestion_batch_count: 0, observed_daily_snapshot_count: 1, qualified_daily_snapshot_count: 0, rejected_daily_snapshot_count: 1, rejected_below_location_and_connector_bounds_snapshot_count: 1, rejected_below_location_bound_only_snapshot_count: 0, rejected_below_connector_bound_only_snapshot_count: 0, snapshot_coverage_rate: 0.0, daily_data_quality_status: insufficient_snapshot_coverage, latest_qualified_location_count: null, latest_qualified_connector_count: null, available_connectors_observed: null, total_connectors_observed: null, effective_available_connectors_per_sqkm: null, is_complete_day: false}
+        - {snapshot_date: '2026-07-11', planning_area: AREA_A, population_release_key: old_key, observed_daily_ingestion_batch_count: 0, duplicate_daily_ingestion_batch_count: 0, observed_daily_snapshot_count: 0, qualified_daily_snapshot_count: 0, rejected_daily_snapshot_count: 0, rejected_below_location_and_connector_bounds_snapshot_count: 0, rejected_below_location_bound_only_snapshot_count: 0, rejected_below_connector_bound_only_snapshot_count: 0, snapshot_coverage_rate: 0.0, daily_data_quality_status: insufficient_snapshot_coverage, latest_qualified_location_count: null, latest_qualified_connector_count: null, available_connectors_observed: null, total_connectors_observed: null, effective_available_connectors_per_sqkm: null, is_complete_day: false}
+        - {snapshot_date: '2026-07-11', planning_area: AREA_B, population_release_key: old_key, observed_daily_ingestion_batch_count: 0, duplicate_daily_ingestion_batch_count: 0, observed_daily_snapshot_count: 0, qualified_daily_snapshot_count: 0, rejected_daily_snapshot_count: 0, rejected_below_location_and_connector_bounds_snapshot_count: 0, rejected_below_location_bound_only_snapshot_count: 0, rejected_below_connector_bound_only_snapshot_count: 0, snapshot_coverage_rate: 0.0, daily_data_quality_status: insufficient_snapshot_coverage, latest_qualified_location_count: null, latest_qualified_connector_count: null, available_connectors_observed: null, total_connectors_observed: null, effective_available_connectors_per_sqkm: null, is_complete_day: false}
+        - {snapshot_date: '2026-07-12', planning_area: AREA_A, population_release_key: new_key, observed_daily_ingestion_batch_count: 1, duplicate_daily_ingestion_batch_count: 0, observed_daily_snapshot_count: 1, qualified_daily_snapshot_count: 0, rejected_daily_snapshot_count: 1, rejected_below_location_and_connector_bounds_snapshot_count: 0, rejected_below_location_bound_only_snapshot_count: 1, rejected_below_connector_bound_only_snapshot_count: 0, snapshot_coverage_rate: 0.0, daily_data_quality_status: insufficient_snapshot_coverage, latest_qualified_location_count: null, latest_qualified_connector_count: null, available_connectors_observed: null, total_connectors_observed: null, effective_available_connectors_per_sqkm: null, is_complete_day: false}
+        - {snapshot_date: '2026-07-12', planning_area: AREA_B, population_release_key: new_key, observed_daily_ingestion_batch_count: 1, duplicate_daily_ingestion_batch_count: 0, observed_daily_snapshot_count: 1, qualified_daily_snapshot_count: 0, rejected_daily_snapshot_count: 1, rejected_below_location_and_connector_bounds_snapshot_count: 0, rejected_below_location_bound_only_snapshot_count: 1, rejected_below_connector_bound_only_snapshot_count: 0, snapshot_coverage_rate: 0.0, daily_data_quality_status: insufficient_snapshot_coverage, latest_qualified_location_count: null, latest_qualified_connector_count: null, available_connectors_observed: null, total_connectors_observed: null, effective_available_connectors_per_sqkm: null, is_complete_day: false}
+        - {snapshot_date: '2026-07-13', planning_area: AREA_A, population_release_key: new_key, observed_daily_ingestion_batch_count: 2, duplicate_daily_ingestion_batch_count: 0, observed_daily_snapshot_count: 2, qualified_daily_snapshot_count: 1, rejected_daily_snapshot_count: 1, rejected_below_location_and_connector_bounds_snapshot_count: 0, rejected_below_location_bound_only_snapshot_count: 0, rejected_below_connector_bound_only_snapshot_count: 1, snapshot_coverage_rate: 0.5, daily_data_quality_status: publishable, latest_qualified_location_count: 2, latest_qualified_connector_count: 2, available_connectors_observed: 2, total_connectors_observed: 2, effective_available_connectors_per_sqkm: 0.5, is_complete_day: true}
+        - {snapshot_date: '2026-07-13', planning_area: AREA_B, population_release_key: new_key, observed_daily_ingestion_batch_count: 2, duplicate_daily_ingestion_batch_count: 0, observed_daily_snapshot_count: 2, qualified_daily_snapshot_count: 1, rejected_daily_snapshot_count: 1, rejected_below_location_and_connector_bounds_snapshot_count: 0, rejected_below_location_bound_only_snapshot_count: 0, rejected_below_connector_bound_only_snapshot_count: 1, snapshot_coverage_rate: 0.5, daily_data_quality_status: publishable, latest_qualified_location_count: 0, latest_qualified_connector_count: 0, available_connectors_observed: 0, total_connectors_observed: 0, effective_available_connectors_per_sqkm: 0.0, is_complete_day: true}
+        - {snapshot_date: '2026-07-14', planning_area: AREA_A, population_release_key: new_key, observed_daily_ingestion_batch_count: 1, duplicate_daily_ingestion_batch_count: 0, observed_daily_snapshot_count: 1, qualified_daily_snapshot_count: 1, rejected_daily_snapshot_count: 0, rejected_below_location_and_connector_bounds_snapshot_count: 0, rejected_below_location_bound_only_snapshot_count: 0, rejected_below_connector_bound_only_snapshot_count: 0, snapshot_coverage_rate: 0.5, daily_data_quality_status: open_day, latest_qualified_location_count: 1, latest_qualified_connector_count: 1, available_connectors_observed: 1, total_connectors_observed: 1, effective_available_connectors_per_sqkm: 0.25, is_complete_day: false}
+        - {snapshot_date: '2026-07-14', planning_area: AREA_B, population_release_key: new_key, observed_daily_ingestion_batch_count: 1, duplicate_daily_ingestion_batch_count: 0, observed_daily_snapshot_count: 1, qualified_daily_snapshot_count: 1, rejected_daily_snapshot_count: 0, rejected_below_location_and_connector_bounds_snapshot_count: 0, rejected_below_location_bound_only_snapshot_count: 0, rejected_below_connector_bound_only_snapshot_count: 0, snapshot_coverage_rate: 0.5, daily_data_quality_status: open_day, latest_qualified_location_count: 1, latest_qualified_connector_count: 1, available_connectors_observed: 0, total_connectors_observed: 1, effective_available_connectors_per_sqkm: 0.0, is_complete_day: false}
+
+  - name: mart_supply_demand_gap_scoring_and_status_precedence
+    description: >
+      Proves exact threshold ranks, zero-supply ties, reported-zero eligibility, complete-cohort
+      gating, and non-publishable/population exception precedence from raw daily-fact inputs.
+    model: mart_supply_demand_gap
+    overrides:
+      vars:
+        supply_demand_expected_rank_population_size: 9
+    given:
+      - input: ref('fct_supply_demand_daily')
+        format: sql
+        rows: |
+          with fixture as (
+              select * from unnest([
+                  struct(date '2026-07-01' as snapshot_date, 'A' as planning_area, 0.0 as population_density_per_sqkm, 10.0 as effective_available_connectors_per_sqkm, 'reported_zero' as population_data_status, 'release_key' as population_release_key, 'publishable' as daily_data_quality_status),
+                  struct(date '2026-07-01', 'B', 20.0, 20.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-01', 'C', 30.0, 30.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-01', 'D', 50.0, 40.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-01', 'E', 70.0, 50.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-01', 'F', 90.0, 60.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-01', 'G', 40.0, 70.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-01', 'H', 60.0, 80.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-01', 'I', 80.0, 90.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-02', 'A', 90.0, 0.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-02', 'B', 40.0, 30.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-02', 'C', 10.0, 60.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-02', 'D', 80.0, 0.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-02', 'E', 70.0, 0.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-02', 'F', 20.0, 10.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-02', 'G', 30.0, 20.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-02', 'H', 50.0, 40.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-02', 'I', 60.0, 50.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-03', 'M', null, 10.0, 'missing', 'release_key', 'publishable'),
+                  struct(date '2026-07-03', 'N1', 10.0, 10.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-03', 'N2', 20.0, 20.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-03', 'N3', 30.0, 30.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-03', 'N4', 40.0, 40.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-03', 'N5', 50.0, 50.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-03', 'N6', 60.0, 60.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-03', 'N7', 70.0, 70.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-03', 'N8', 80.0, 80.0, 'reported', 'release_key', 'publishable'),
+                  struct(date '2026-07-04', 'X', null, 10.0, null, null, 'publishable'),
+                  struct(date '2026-07-05', 'O', 10.0, 10.0, 'reported', 'release_key', 'open_day'),
+                  struct(date '2026-07-06', 'P', 10.0, null, 'reported', 'release_key', 'insufficient_snapshot_coverage')
+              ])
+          )
+
+          select
+              fixture.snapshot_date,
+              fixture.planning_area,
+              'R' as region,
+              st_geogfromtext('POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))') as boundary,
+              cast(1.0 as float64) as area_sqkm,
+              case when population_release_key is null then null else 2025 end as population_year,
+              fixture.population_release_key,
+              case when population_release_key is null then null else date '2025-06-30' end as source_reference_date,
+              case when population_release_key is null then null else date '2025-07-01' end as source_published_date,
+              case when population_release_key is null then null else date '2026-07-01' end as source_retrieved_date,
+              case when population_release_key is null then null else 'MP2019' end as planning_geography_version,
+              cast(population_density_per_sqkm as int64) as resident_population,
+              fixture.population_density_per_sqkm,
+              fixture.population_data_status,
+              cast(if(daily_data_quality_status = 'insufficient_snapshot_coverage', 0, 48) as int64) as observed_daily_ingestion_batch_count,
+              cast(0 as int64) as duplicate_daily_ingestion_batch_count,
+              cast(if(daily_data_quality_status = 'insufficient_snapshot_coverage', 0, 48) as int64) as observed_daily_snapshot_count,
+              cast(if(daily_data_quality_status = 'insufficient_snapshot_coverage', 0, 48) as int64) as qualified_daily_snapshot_count,
+              cast(0 as int64) as rejected_daily_snapshot_count,
+              cast(0 as int64) as rejected_below_location_and_connector_bounds_snapshot_count,
+              cast(0 as int64) as rejected_below_location_bound_only_snapshot_count,
+              cast(0 as int64) as rejected_below_connector_bound_only_snapshot_count,
+              cast(48 as int64) as expected_daily_snapshot_count,
+              if(daily_data_quality_status = 'insufficient_snapshot_coverage', 0.0, 1.0) as snapshot_coverage_rate,
+              daily_data_quality_status = 'publishable' as is_complete_day,
+              fixture.daily_data_quality_status,
+              cast(1 as int64) as latest_qualified_location_count,
+              cast(1 as int64) as latest_qualified_connector_count,
+              cast(1.0 as float64) as latest_qualified_connector_density_per_sqkm,
+              cast(coalesce(effective_available_connectors_per_sqkm, 0.0) as int64) as available_connectors_observed,
+              cast(100 - coalesce(effective_available_connectors_per_sqkm, 0.0) as int64) as occupied_connectors_observed,
+              cast(0 as int64) as unavailable_connectors_observed,
+              cast(0 as int64) as unknown_connectors_observed,
+              cast(100 as int64) as total_connectors_observed,
+              fixture.effective_available_connectors_per_sqkm as average_available_connectors_per_qualified_snapshot,
+              fixture.effective_available_connectors_per_sqkm,
+              safe_divide(effective_available_connectors_per_sqkm, 100.0) as daily_availability_rate,
+              1.0 - safe_divide(effective_available_connectors_per_sqkm, 100.0) as daily_occupied_rate,
+              cast(0.0 as float64) as daily_unavailable_rate,
+              cast(0.0 as float64) as daily_unknown_rate,
+              concat(cast(snapshot_date as string), '|', planning_area) as supply_demand_daily_key
+          from fixture
+    expect:
+      rows:
+        - {snapshot_date: '2026-07-01', planning_area: A, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.0, supply_index: 0.0, mismatch_score: 0.0, service_band: broadly_balanced, score_status: scored}
+        - {snapshot_date: '2026-07-01', planning_area: B, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.125, supply_index: 0.125, mismatch_score: 0.0, service_band: broadly_balanced, score_status: scored}
+        - {snapshot_date: '2026-07-01', planning_area: C, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.25, supply_index: 0.25, mismatch_score: 0.0, service_band: broadly_balanced, score_status: scored}
+        - {snapshot_date: '2026-07-01', planning_area: D, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.5, supply_index: 0.375, mismatch_score: 0.125, service_band: broadly_balanced, score_status: scored}
+        - {snapshot_date: '2026-07-01', planning_area: E, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.75, supply_index: 0.5, mismatch_score: 0.25, service_band: underserved, score_status: scored}
+        - {snapshot_date: '2026-07-01', planning_area: F, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 1.0, supply_index: 0.625, mismatch_score: 0.375, service_band: underserved, score_status: scored}
+        - {snapshot_date: '2026-07-01', planning_area: G, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.375, supply_index: 0.75, mismatch_score: -0.375, service_band: overserved, score_status: scored}
+        - {snapshot_date: '2026-07-01', planning_area: H, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.625, supply_index: 0.875, mismatch_score: -0.25, service_band: overserved, score_status: scored}
+        - {snapshot_date: '2026-07-01', planning_area: I, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.875, supply_index: 1.0, mismatch_score: -0.125, service_band: broadly_balanced, score_status: scored}
+        - {snapshot_date: '2026-07-02', planning_area: A, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 1.0, supply_index: 0.0, mismatch_score: 1.0, service_band: underserved, score_status: scored}
+        - {snapshot_date: '2026-07-02', planning_area: B, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.375, supply_index: 0.625, mismatch_score: -0.25, service_band: overserved, score_status: scored}
+        - {snapshot_date: '2026-07-02', planning_area: C, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.0, supply_index: 1.0, mismatch_score: -1.0, service_band: overserved, score_status: scored}
+        - {snapshot_date: '2026-07-02', planning_area: D, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.875, supply_index: 0.0, mismatch_score: 0.875, service_band: underserved, score_status: scored}
+        - {snapshot_date: '2026-07-02', planning_area: E, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.75, supply_index: 0.0, mismatch_score: 0.75, service_band: underserved, score_status: scored}
+        - {snapshot_date: '2026-07-02', planning_area: F, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.125, supply_index: 0.375, mismatch_score: -0.25, service_band: overserved, score_status: scored}
+        - {snapshot_date: '2026-07-02', planning_area: G, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.25, supply_index: 0.5, mismatch_score: -0.25, service_band: overserved, score_status: scored}
+        - {snapshot_date: '2026-07-02', planning_area: H, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.5, supply_index: 0.75, mismatch_score: -0.25, service_band: overserved, score_status: scored}
+        - {snapshot_date: '2026-07-02', planning_area: I, rank_population_size: 9, expected_rank_population_size: 9, demand_index: 0.625, supply_index: 0.875, mismatch_score: -0.25, service_band: overserved, score_status: scored}
+        - {snapshot_date: '2026-07-03', planning_area: M, rank_population_size: 8, expected_rank_population_size: 9, demand_index: null, supply_index: null, mismatch_score: null, service_band: null, score_status: missing_population}
+        - {snapshot_date: '2026-07-03', planning_area: N1, rank_population_size: 8, expected_rank_population_size: 9, demand_index: null, supply_index: null, mismatch_score: null, service_band: null, score_status: incomplete_rank_cohort}
+        - {snapshot_date: '2026-07-03', planning_area: N2, rank_population_size: 8, expected_rank_population_size: 9, demand_index: null, supply_index: null, mismatch_score: null, service_band: null, score_status: incomplete_rank_cohort}
+        - {snapshot_date: '2026-07-03', planning_area: N3, rank_population_size: 8, expected_rank_population_size: 9, demand_index: null, supply_index: null, mismatch_score: null, service_band: null, score_status: incomplete_rank_cohort}
+        - {snapshot_date: '2026-07-03', planning_area: N4, rank_population_size: 8, expected_rank_population_size: 9, demand_index: null, supply_index: null, mismatch_score: null, service_band: null, score_status: incomplete_rank_cohort}
+        - {snapshot_date: '2026-07-03', planning_area: N5, rank_population_size: 8, expected_rank_population_size: 9, demand_index: null, supply_index: null, mismatch_score: null, service_band: null, score_status: incomplete_rank_cohort}
+        - {snapshot_date: '2026-07-03', planning_area: N6, rank_population_size: 8, expected_rank_population_size: 9, demand_index: null, supply_index: null, mismatch_score: null, service_band: null, score_status: incomplete_rank_cohort}
+        - {snapshot_date: '2026-07-03', planning_area: N7, rank_population_size: 8, expected_rank_population_size: 9, demand_index: null, supply_index: null, mismatch_score: null, service_band: null, score_status: incomplete_rank_cohort}
+        - {snapshot_date: '2026-07-03', planning_area: N8, rank_population_size: 8, expected_rank_population_size: 9, demand_index: null, supply_index: null, mismatch_score: null, service_band: null, score_status: incomplete_rank_cohort}
+        - {snapshot_date: '2026-07-04', planning_area: X, rank_population_size: 0, expected_rank_population_size: 9, demand_index: null, supply_index: null, mismatch_score: null, service_band: null, score_status: no_population_snapshot_as_of_date}
+        - {snapshot_date: '2026-07-05', planning_area: O, rank_population_size: 1, expected_rank_population_size: 9, demand_index: null, supply_index: null, mismatch_score: null, service_band: null, score_status: daily_data_not_publishable}
+        - {snapshot_date: '2026-07-06', planning_area: P, rank_population_size: 1, expected_rank_population_size: 9, demand_index: null, supply_index: null, mismatch_score: null, service_band: null, score_status: daily_data_not_publishable}
+
+  - name: rpt_supply_demand_gap_current_fails_closed_on_latest_incomplete_candidate
+    description: >
+      Proves that a newer 54-of-55 scored candidate blocks publication and does not fall back to an
+      older fully scored date.
+    model: rpt_supply_demand_gap_current
+    given:
+      - input: ref('mart_supply_demand_gap')
+        format: sql
+        rows: |
+          with fixture as (
+              select
+                  date '2026-07-01' as snapshot_date,
+                  area_number
+              from unnest(generate_array(1, 55)) as area_number
+
+              union all
+
+              select
+                  date '2026-07-02' as snapshot_date,
+                  area_number
+              from unnest(generate_array(1, 55)) as area_number
+          )
+
+          select
+              fixture.snapshot_date,
+              concat('AREA_', cast(area_number as string)) as planning_area,
+              'R' as region,
+              st_geogfromtext('POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))') as boundary,
+              cast(1.0 as float64) as area_sqkm,
+              cast(2025 as int64) as population_year,
+              'release_key' as population_release_key,
+              date '2025-06-30' as source_reference_date,
+              date '2025-07-01' as source_published_date,
+              date '2026-07-01' as source_retrieved_date,
+              'MP2019' as planning_geography_version,
+              cast(area_number as int64) as resident_population,
+              cast(area_number as float64) as population_density_per_sqkm,
+              'reported' as population_data_status,
+              cast(48 as int64) as observed_daily_ingestion_batch_count,
+              cast(0 as int64) as duplicate_daily_ingestion_batch_count,
+              cast(48 as int64) as observed_daily_snapshot_count,
+              cast(48 as int64) as qualified_daily_snapshot_count,
+              cast(0 as int64) as rejected_daily_snapshot_count,
+              cast(0 as int64) as rejected_below_location_and_connector_bounds_snapshot_count,
+              cast(0 as int64) as rejected_below_location_bound_only_snapshot_count,
+              cast(0 as int64) as rejected_below_connector_bound_only_snapshot_count,
+              cast(48 as int64) as expected_daily_snapshot_count,
+              cast(1.0 as float64) as snapshot_coverage_rate,
+              true as is_complete_day,
+              'publishable' as daily_data_quality_status,
+              cast(1 as int64) as latest_qualified_location_count,
+              cast(1 as int64) as latest_qualified_connector_count,
+              cast(1.0 as float64) as latest_qualified_connector_density_per_sqkm,
+              cast(1 as int64) as available_connectors_observed,
+              cast(0 as int64) as occupied_connectors_observed,
+              cast(0 as int64) as unavailable_connectors_observed,
+              cast(0 as int64) as unknown_connectors_observed,
+              cast(1 as int64) as total_connectors_observed,
+              cast(1.0 as float64) as average_available_connectors_per_qualified_snapshot,
+              cast(1.0 as float64) as effective_available_connectors_per_sqkm,
+              cast(1.0 as float64) as daily_availability_rate,
+              cast(0.0 as float64) as daily_occupied_rate,
+              cast(0.0 as float64) as daily_unavailable_rate,
+              cast(0.0 as float64) as daily_unknown_rate,
+              concat(cast(snapshot_date as string), '|', cast(area_number as string)) as supply_demand_daily_key,
+              cast(if(snapshot_date = date '2026-07-01', 55, 54) as int64) as rank_population_size,
+              cast(55 as int64) as expected_rank_population_size,
+              case when snapshot_date = date '2026-07-02' and area_number = 55 then null else 0.5 end as demand_index,
+              case when snapshot_date = date '2026-07-02' and area_number = 55 then null else 0.5 end as supply_index,
+              case when snapshot_date = date '2026-07-02' and area_number = 55 then null else 0.0 end as mismatch_score,
+              case when snapshot_date = date '2026-07-02' and area_number = 55 then null else 'broadly_balanced' end as service_band,
+              case when snapshot_date = date '2026-07-02' and area_number = 55 then 'incomplete_rank_cohort' else 'scored' end as score_status,
+              'population_gap_v1' as score_version,
+              cast(0.25 as float64) as underserved_threshold,
+              cast(-0.25 as float64) as overserved_threshold
+          from fixture
+    expect:
+      rows: []
+
+exposures:
+  - name: where_is_charging_supply_falling_behind_residential_demand
+    label: Where Is Charging Supply Falling Behind Residential Demand?
+    type: dashboard
+    maturity: medium
+    description: >
+      Looker Studio planning-area page for the latest fully scored residential demand and observed
+      accessible charging-supply mismatch. A stable report URL has not yet been assigned.
+    depends_on:
+      - ref('rpt_supply_demand_gap_current')
+    owner:
+      name: Ryan Tang
