@@ -128,6 +128,7 @@ resource "google_project_iam_member" "terraform_prod_roles" {
   for_each = toset([
     "roles/bigquery.admin",
     "roles/secretmanager.admin",
+    "roles/serviceusage.serviceUsageAdmin",
     "roles/resourcemanager.projectIamAdmin",
     "roles/iam.serviceAccountAdmin",
     "roles/iam.workloadIdentityPoolAdmin",
