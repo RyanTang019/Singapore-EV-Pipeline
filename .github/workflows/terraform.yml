@@ -46,7 +46,9 @@ jobs:
         working-directory: terraform/prod
         env:
           TF_VAR_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
-        run: terraform plan -no-color 2>&1 | tee plan_output.txt
+        run: |
+          set -o pipefail
+          terraform plan -no-color 2>&1 | tee plan_output.txt
 
       - name: Comment plan on PR
         uses: actions/github-script@v7
