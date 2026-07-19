@@ -54,7 +54,7 @@ resource "hcloud_server" "dagster" {
   # running server. Force an explicit replacement when other cloud-init changes
   # genuinely need to be applied to an existing VM.
   lifecycle {
-    ignore_changes = [user_data]
+    ignore_changes = [user_data, ssh_keys]
   }
 
   ssh_keys = [hcloud_ssh_key.developer_1.id, hcloud_ssh_key.developer_2.id]
@@ -78,7 +78,7 @@ resource "hcloud_server" "dagster" {
       - path: /opt/deploy/deploy.sh
         permissions: "0755"
         encoding: b64
-        content: ${base64encode(file("${path.module}/deploy.sh"))}
+        content: ${base64encode(file("${path.module}/../deploy.sh"))}
 
     runcmd:
       - mkdir -p /opt/dagster /opt/deploy
