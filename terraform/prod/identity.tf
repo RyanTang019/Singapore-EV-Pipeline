@@ -96,8 +96,7 @@ resource "google_service_account_iam_member" "ci_wif" {
 }
 
 # Cross-project: sgev-ci gets bigquery.user on dev project.
-# Dataset creator becomes owner of only that new dataset — lets dbt build and
-# delete ci_* schemas without touching existing dev or prod data.
+# Includes bigquery.datasets.create — lets CI create ci_* schemas and own them.
 resource "google_project_iam_member" "ci_bq_user_dev" {
   project = var.dev_project_id
   role    = "roles/bigquery.user"
