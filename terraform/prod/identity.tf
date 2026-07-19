@@ -132,6 +132,7 @@ resource "google_project_iam_member" "terraform_prod_roles" {
     "roles/resourcemanager.projectIamAdmin",
     "roles/iam.serviceAccountAdmin",
     "roles/iam.workloadIdentityPoolAdmin",
+    "roles/storage.admin",
   ])
 
   project = var.project_id
@@ -139,10 +140,17 @@ resource "google_project_iam_member" "terraform_prod_roles" {
   member  = "serviceAccount:${google_service_account.terraform.email}"
 }
 
+# Cross-project: sgev-terraform needs IAM admin on dev to manage ci_bq_user_dev binding
+resource "google_project_iam_member" "terraform_dev_iam_admin" {
+  project = var.dev_project_id
+  role    = "roles/resourcemanager.projectIamAdmin"
+  member  = "serviceAccount:${google_service_account.terraform.email}"
+}
+
 # State bucket access
 resource "google_storage_bucket_iam_member" "terraform_state" {
   bucket = "sgevpipeline-tfstate"
-  role   = "roles/storage.objectAdmin"
+  role   = "roles/storage.admin"
   member = "serviceAccount:${google_service_account.terraform.email}"
 }
 
