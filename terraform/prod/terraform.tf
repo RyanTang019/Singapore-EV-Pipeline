@@ -3,7 +3,7 @@ terraform {
 
   backend "gcs" {
     bucket = "sgevpipeline-tfstate"
-    prefix = "terraform/state"
+    prefix = "terraform/prod"
   }
 
   required_providers {
@@ -20,12 +20,6 @@ terraform {
 
 provider "google" {
   project = var.project_id
-  region  = var.region
-}
-
-provider "google" {
-  alias   = "dev"
-  project = var.dev_project_id
   region  = var.region
 }
 

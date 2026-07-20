@@ -61,7 +61,6 @@ resource "google_bigquery_dataset" "prod_seed" {
 }
 
 # IAM - grant service account access to each dataset
-# Uses implicit dependencies to ensure datasets are created before IAM bindings
 
 resource "google_bigquery_dataset_iam_member" "raw_editor" {
   dataset_id = google_bigquery_dataset.raw.dataset_id
@@ -92,4 +91,3 @@ resource "google_bigquery_dataset_iam_member" "prod_seed_editor" {
   role       = "roles/bigquery.dataEditor"
   member     = "serviceAccount:${var.service_account_email}"
 }
-

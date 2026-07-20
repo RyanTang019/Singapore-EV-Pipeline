@@ -53,6 +53,14 @@ transform/.user.yml
 terraform/terraform.tfvars
 terraform/.terraform
 terraform/tf_plan
+terraform/dev/.terraform
+terraform/dev/tf_plan
+terraform/dev/plan_output.txt
+terraform/prod/.terraform
+terraform/prod/tf_plan
+terraform/prod/plan_output.txt
+terraform/prod/terraform.tfvars
+terraform/dev/terraform.tfvars
 
 # Local vendor data — normalized/generated seeds are tracked separately
 data/vendor/singstat/

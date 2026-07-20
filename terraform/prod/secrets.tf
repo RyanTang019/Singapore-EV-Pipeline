@@ -15,7 +15,6 @@ resource "google_secret_manager_secret" "env" {
   depends_on = [google_project_service.secretmanager]
 }
 
-# Grant the Dagster service account access to read the secrets
 resource "google_secret_manager_secret_iam_member" "env_accessor" {
   secret_id = google_secret_manager_secret.env.secret_id
   role      = "roles/secretmanager.secretAccessor"

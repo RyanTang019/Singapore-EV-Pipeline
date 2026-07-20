@@ -4,7 +4,7 @@ variable "project_id" {
 }
 
 variable "dev_project_id" {
-  description = "GCP project ID (dev)"
+  description = "GCP project ID (dev) — needed for cross-project IAM grants from prod identity resources"
   type        = string
 }
 
@@ -42,12 +42,6 @@ variable "prod_seed_dataset_id" {
   description = "BigQuery dataset for dbt seeds (prod target)"
   type        = string
   default     = "prod_seed"
-}
-
-variable "developers" {
-  description = "Developer handles — each gets dev_<handle>_staging and _marts (raw is shared: dev_raw)"
-  type        = list(string)
-  default     = ["ryan", "oliver"]
 }
 
 variable "service_account_email" {
