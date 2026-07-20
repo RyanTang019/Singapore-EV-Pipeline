@@ -11,7 +11,7 @@ on:
       - terraform/prod/**
 
 concurrency:
-  group: terraform-${{ github.ref_name }}
+  group: terraform-prod
   cancel-in-progress: false
 
 jobs:
