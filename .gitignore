@@ -63,7 +63,7 @@ terraform/prod/terraform.tfvars
 terraform/dev/terraform.tfvars
 
 # Local vendor data — normalized/generated seeds are tracked separately
-data/vendor/singstat/
+data/vendor/
 
 #docs
 docs/
