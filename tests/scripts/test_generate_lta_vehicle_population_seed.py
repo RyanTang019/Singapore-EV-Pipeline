@@ -189,9 +189,10 @@ def test_fixture_helper_rebuilds_committed_zip_byte_for_byte():
     assert fixture_builder["build_zip_bytes"]() == FIXTURE.read_bytes()
 
 
-def test_parse_archive_rejects_wrong_basename_extra_members_and_mutated_header():
+def test_parse_archive_allows_directories_but_rejects_wrong_basename_extra_files_and_header():
     csv_bytes = parse_archive(FIXTURE.read_bytes())
 
+    assert parse_archive(_zip_bytes(csv_bytes, extra_member=("source/", b""))) == csv_bytes
     with pytest.raises(ValueError, match="M09-Vehs_by_Fuel_Type.csv"):
         parse_archive(_zip_bytes(csv_bytes, member_name="m09.csv"))
     with pytest.raises(ValueError, match="exactly one archive member"):
@@ -535,6 +536,39 @@ def test_write_output_pair_cleans_up_if_second_temp_creation_fails(
         )
 
     assert {path.name for path in tmp_path.iterdir()} == {"classification.csv"}
+
+
+def test_write_fsynced_temp_cleans_up_when_fsync_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    def fail_fsync(_descriptor: int) -> None:
+        raise OSError("simulated temp fsync failure")
+
+    monkeypatch.setattr(generator.os, "fsync", fail_fsync)
+
+    with pytest.raises(OSError, match="simulated temp fsync"):
+        generator._write_fsynced_temp(b"payload", tmp_path / "population.csv")
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_make_backup_cleans_up_when_copy_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    destination = tmp_path / "population.csv"
+    destination.write_bytes(b"existing")
+
+    def fail_copy(_source: Path, _destination: Path) -> None:
+        raise OSError("simulated backup copy failure")
+
+    monkeypatch.setattr(generator.shutil, "copy2", fail_copy)
+
+    with pytest.raises(OSError, match="simulated backup copy"):
+        generator._make_backup(destination)
+
+    assert {path.name for path in tmp_path.iterdir()} == {"population.csv"}
 
 
 def test_write_output_pair_rolls_back_a_partial_replacement(

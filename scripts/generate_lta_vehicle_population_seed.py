@@ -659,17 +659,23 @@ def build_outputs(
 
 def _write_fsynced_temp(payload: bytes, destination: Path) -> Path:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
+    handle = tempfile.NamedTemporaryFile(
         mode="wb",
         dir=destination.parent,
         prefix=f".{destination.name}.",
         suffix=".tmp",
         delete=False,
-    ) as handle:
-        handle.write(payload)
-        handle.flush()
-        os.fsync(handle.fileno())
-        return Path(handle.name)
+    )
+    temporary_path = Path(handle.name)
+    try:
+        with handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except Exception:
+        temporary_path.unlink(missing_ok=True)
+        raise
+    return temporary_path
 
 
 def _make_backup(destination: Path) -> Path | None:
@@ -680,11 +686,15 @@ def _make_backup(destination: Path) -> Path | None:
         prefix=f".{destination.name}.",
         suffix=".backup",
     )
-    os.close(descriptor)
     backup = Path(backup_name)
-    shutil.copy2(destination, backup)
-    with backup.open("rb") as handle:
-        os.fsync(handle.fileno())
+    try:
+        os.close(descriptor)
+        shutil.copy2(destination, backup)
+        with backup.open("rb") as handle:
+            os.fsync(handle.fileno())
+    except Exception:
+        backup.unlink(missing_ok=True)
+        raise
     return backup
 
 
