@@ -1,0 +1,10 @@
+source_fuel_type,powertrain_group,is_bev,is_phev,is_plug_in_vehicle,classification_version
+Petrol,combustion,false,false,false,lta_m09_powertrain_v1
+Diesel,combustion,false,false,false,lta_m09_powertrain_v1
+Petrol-CNG,combustion,false,false,false,lta_m09_powertrain_v1
+CNG,combustion,false,false,false,lta_m09_powertrain_v1
+Petrol-Electric,non_plug_in_hybrid,false,false,false,lta_m09_powertrain_v1
+Diesel-Electric,non_plug_in_hybrid,false,false,false,lta_m09_powertrain_v1
+Electric,battery_electric,true,false,true,lta_m09_powertrain_v1
+Petrol-Electric (Plug-In),plug_in_hybrid,false,true,true,lta_m09_powertrain_v1
+Diesel-Electric (Plug-In),plug_in_hybrid,false,true,true,lta_m09_powertrain_v1
