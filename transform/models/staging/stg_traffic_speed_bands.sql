@@ -1,5 +1,5 @@
 {# One row per road link (LinkID) per snapshot (batch_id). Explodes the opaque
-   v3/TrafficSpeedBands payload (records under $.value) into typed columns.
+   v4/TrafficSpeedBands payload (records under $.value) into typed columns.
    LTA quirks handled: the numeric fields all arrive as JSON strings (cast
    here); SpeedBand is documented 1-8 but an undocumented 0 (no speed reading)
    also appears and is passed through untouched so it stays visible.
