@@ -12,8 +12,12 @@ from dagster import Backoff, RetryPolicy
 from .extractors import Extractor, ODataPagedExtractor, S3LinkExtractor
 
 EVCBATCH_URL = "https://datamall2.mytransport.sg/ltaodataservice/EVCBatch"
+# v4 since 2026-08-02: LTA retired the v3 path (gateway 404 "The requested API was not
+# found"), so the version is part of the contract — a bump is a hard outage, not a warning.
+# Same AccountKey, same $skip paging, same {lastUpdatedTime, value[]} envelope and record
+# fields; v4 only widened coverage (~57k links -> ~144k).
 TRAFFIC_SPEED_BANDS_URL = (
-    "https://datamall2.mytransport.sg/ltaodataservice/v3/TrafficSpeedBands"
+    "https://datamall2.mytransport.sg/ltaodataservice/v4/TrafficSpeedBands"
 )
 CARPARK_AVAILABILITY_URL = (
     "https://datamall2.mytransport.sg/ltaodataservice/CarParkAvailabilityv2"

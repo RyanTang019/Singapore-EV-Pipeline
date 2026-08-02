@@ -35,7 +35,7 @@ models:
   - name: stg_traffic_speed_bands
     description: >
       One row per road link (LinkID) per snapshot, exploded from the opaque
-      v3/TrafficSpeedBands payload. Grain key: (batch_id, link_id). Numeric
+      v4/TrafficSpeedBands payload. Grain key: (batch_id, link_id). Numeric
       fields cast from JSON strings. SpeedBand is 1-8 plus an undocumented 0
       (no reading). Payload carries a top-level lastUpdatedTime (SGT wall-clock),
       exposed as snapshot_time normalized to true UTC; distinct from ingested_at.

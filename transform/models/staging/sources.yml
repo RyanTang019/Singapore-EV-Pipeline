@@ -11,6 +11,6 @@ sources:
       - name: ev_charger_availability
         description: "EVCBatch snapshots. payload top-level: {LastUpdatedTime, evLocationsData[]}."
       - name: traffic_speed_bands
-        description: "v3/TrafficSpeedBands snapshots. payload = {lastUpdatedTime (SGT), value[]}; value[] = one road link (LinkID) each."
+        description: "v4/TrafficSpeedBands snapshots (v3 until 2026-08-02; same envelope and fields). payload = {lastUpdatedTime (SGT), value[]}; value[] = one road link (LinkID) each."
       - name: carpark_availability
         description: "CarParkAvailabilityv2 snapshots. payload = {value[]}; value[] = one carpark x lot type each. No internal timestamp."
