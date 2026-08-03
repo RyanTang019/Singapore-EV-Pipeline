@@ -1,0 +1,85 @@
+version: 2
+
+models:
+  - name: fct_national_ev_adoption_monthly
+    description: >
+      National registered-vehicle stock at month_end x vehicle_type x source_fuel_type for the
+      single active LTA M09 release. Retains every published fuel row, carries the exact source
+      labels and count token, the versioned powertrain classification, and the release provenance
+      needed to attribute any published figure. Stock, not registrations.
+    columns:
+      - name: adoption_fact_key
+        description: >
+          MD5 of month_end, vehicle_type, and source_fuel_type. The release key is deliberately
+          excluded because staging enforces exactly one active source release.
+        tests: [unique, not_null]
+      - name: source_release_key
+        description: Release-identity key of the active controlled source release.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_lta_monthly_vehicle_population_releases')
+                field: source_release_key
+      - name: source_dataset_id
+        description: Repository-owned stable source identity.
+        tests: [not_null]
+      - name: month_end
+        description: Last calendar day of the source reporting month.
+        tests: [not_null]
+      - name: vehicle_type
+        description: Controlled normalized vehicle-type key.
+        tests: [not_null]
+      - name: source_fuel_type
+        description: Exact LTA fuel label.
+        tests: [not_null]
+      - name: source_vehicle_category
+        description: Exact LTA vehicle category label.
+        tests: [not_null]
+      - name: source_value_token
+        description: Exact source count token, including '-'.
+        tests: [not_null]
+      - name: source_value_status
+        description: Whether the measure was reported numerically or dash-normalized.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - reported_numeric
+                  - source_dash_zero
+      - name: powertrain_group
+        description: Controlled powertrain classification for this fuel label.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - combustion
+                  - non_plug_in_hybrid
+                  - battery_electric
+                  - plug_in_hybrid
+      - name: classification_version
+        description: Powertrain policy version applied to this row.
+        tests: [not_null]
+      - name: csv_sha256
+        description: Lower-case SHA-256 of the canonical CSV member of the active release.
+        tests: [not_null]
+      - name: vehicle_population
+        description: Non-negative normalized registered stock for the grain.
+        tests: [not_null]
+      - name: is_bev
+        description: True only for the Electric label.
+        tests: [not_null]
+      - name: is_phev
+        description: True only for the two (Plug-In) labels.
+        tests: [not_null]
+      - name: is_plug_in_vehicle
+        description: is_bev or is_phev.
+        tests: [not_null]
+      - name: source_retrieved_date
+        description: Explicit date the project retrieved the official archive.
+        tests: [not_null]
+      - name: latest_source_month_end
+        description: Latest month represented by the active release.
+        tests: [not_null]
