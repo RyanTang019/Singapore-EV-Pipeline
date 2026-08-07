@@ -164,6 +164,78 @@ models:
       - {name: source_retrieved_date, data_type: date, tests: [not_null]}
       - {name: latest_source_month_end, data_type: date, tests: [not_null]}
 
+  - name: rpt_national_ev_adoption_current
+    description: >
+      Fail-closed current national EV adoption slice: the latest mart month, emitted only when
+      that month is a full six-scope complete slice, otherwise zero rows. One row per
+      vehicle_scope (six expected). Contains no temporal-typed columns so a Looker date control
+      cannot hide the page; all dates are exposed as strings.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - {name: adoption_month_scope_key, data_type: string, description: MD5 of month_end and vehicle_scope., tests: [unique, not_null]}
+      - {name: as_of_month, data_type: string, description: Latest reporting month as YYYY-MM., tests: [not_null]}
+      - name: vehicle_scope
+        data_type: string
+        description: One of the five normalized vehicle types or the all_vehicles rollup.
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - cars
+                  - taxis
+                  - motorcycles
+                  - goods_and_other_vehicles
+                  - buses
+                  - all_vehicles
+      - name: adoption_data_status
+        data_type: string
+        description: Restricted to complete at this fail-closed reporting boundary.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [complete]
+      - {name: represented_vehicle_category_count, data_type: int64, tests: [not_null]}
+      - {name: expected_vehicle_category_count, data_type: int64, tests: [not_null]}
+      - {name: total_vehicle_population, data_type: int64, tests: [not_null]}
+      - {name: bev_population, data_type: int64, tests: [not_null]}
+      - {name: phev_population, data_type: int64, tests: [not_null]}
+      - {name: plug_in_vehicle_population, data_type: int64, tests: [not_null]}
+      - {name: non_plug_in_vehicle_population, data_type: int64, tests: [not_null]}
+      - {name: non_plug_in_hybrid_population, data_type: int64, tests: [not_null]}
+      - {name: bev_share, data_type: float64, tests: [not_null]}
+      - {name: phev_share, data_type: float64, tests: [not_null]}
+      - {name: plug_in_vehicle_share, data_type: float64, tests: [not_null]}
+      - {name: bev_net_change_mom, data_type: int64}
+      - {name: bev_growth_rate_mom, data_type: float64}
+      - {name: bev_net_change_yoy, data_type: int64}
+      - {name: bev_growth_rate_yoy, data_type: float64}
+      - {name: phev_net_change_mom, data_type: int64}
+      - {name: phev_growth_rate_mom, data_type: float64}
+      - {name: phev_net_change_yoy, data_type: int64}
+      - {name: phev_growth_rate_yoy, data_type: float64}
+      - {name: plug_in_vehicle_net_change_mom, data_type: int64}
+      - {name: plug_in_vehicle_growth_rate_mom, data_type: float64}
+      - {name: plug_in_vehicle_net_change_yoy, data_type: int64}
+      - {name: plug_in_vehicle_growth_rate_yoy, data_type: float64}
+      - {name: source_dash_row_count, data_type: int64, tests: [not_null]}
+      - {name: source_bev_dash_row_count, data_type: int64, tests: [not_null]}
+      - {name: source_phev_dash_row_count, data_type: int64, tests: [not_null]}
+      - {name: mom_comparison_dash_row_count, data_type: int64}
+      - {name: mom_comparison_bev_dash_row_count, data_type: int64}
+      - {name: mom_comparison_phev_dash_row_count, data_type: int64}
+      - {name: yoy_comparison_dash_row_count, data_type: int64}
+      - {name: yoy_comparison_bev_dash_row_count, data_type: int64}
+      - {name: yoy_comparison_phev_dash_row_count, data_type: int64}
+      - {name: classification_version, data_type: string, tests: [not_null]}
+      - {name: source_release_key, data_type: string, tests: [not_null]}
+      - {name: source_retrieved, data_type: string, description: Human-readable retrieval date (Retrieved YYYY-MM-DD)., tests: [not_null]}
+      - {name: latest_source_month, data_type: string, description: Latest month represented by the active release as YYYY-MM., tests: [not_null]}
+
 unit_tests:
   - name: mart_national_ev_adoption_monthly_classification_completeness_and_growth
     description: >
@@ -611,3 +683,107 @@ unit_tests:
                 date '2026-01-31'
             ) as latest_source_month_end
         from expected_rows
+
+  - name: rpt_national_ev_adoption_current_fails_closed_on_latest_incomplete_candidate
+    description: >
+      Proves the current report emits zero rows when the latest mart month is not a full
+      six-scope complete slice, and does not fall back to an older complete month. Fixture:
+      2026-04-30 has six complete reconciling scopes; the later 2026-05-31 candidate has the
+      buses scope incomplete (five of six complete), which must block publication entirely.
+    model: rpt_national_ev_adoption_current
+    given:
+      - input: ref('mart_national_ev_adoption_monthly')
+        format: sql
+        rows: |
+          with scopes as (
+              select scope.vehicle_scope, scope.expected_count
+              from unnest([
+                  struct('cars' as vehicle_scope, 1 as expected_count),
+                  struct('taxis', 1),
+                  struct('motorcycles', 1),
+                  struct('goods_and_other_vehicles', 1),
+                  struct('buses', 1),
+                  struct('all_vehicles', 5)
+              ]) as scope
+          ),
+
+          candidate_months as (
+              select candidate.month_end, candidate.is_latest
+              from unnest([
+                  struct(date '2026-04-30' as month_end, false as is_latest),
+                  struct(date '2026-05-31', true)
+              ]) as candidate
+          ),
+
+          mart_rows as (
+              select
+                  candidate_months.month_end,
+                  scopes.vehicle_scope,
+                  scopes.expected_count,
+                  candidate_months.is_latest and scopes.vehicle_scope = 'buses'
+                      as is_incomplete_row
+              from candidate_months
+              cross join scopes
+          )
+
+          select
+              to_hex(md5(concat(cast(month_end as string), '|', vehicle_scope)))
+                  as adoption_month_scope_key,
+              month_end,
+              vehicle_scope,
+              if(is_incomplete_row, 'incomplete', 'complete') as adoption_data_status,
+              if(is_incomplete_row, 0, expected_count)
+                  as represented_vehicle_category_count,
+              expected_count as expected_vehicle_category_count,
+              100 as total_vehicle_population,
+              10 as bev_population,
+              5 as phev_population,
+              15 as plug_in_vehicle_population,
+              85 as non_plug_in_vehicle_population,
+              4 as non_plug_in_hybrid_population,
+              if(is_incomplete_row, cast(null as float64), 0.1) as bev_share,
+              if(is_incomplete_row, cast(null as float64), 0.05) as phev_share,
+              if(is_incomplete_row, cast(null as float64), 0.15) as plug_in_vehicle_share,
+              cast(null as int64) as bev_net_change_mom,
+              cast(null as float64) as bev_growth_rate_mom,
+              cast(null as int64) as bev_net_change_yoy,
+              cast(null as float64) as bev_growth_rate_yoy,
+              cast(null as int64) as phev_net_change_mom,
+              cast(null as float64) as phev_growth_rate_mom,
+              cast(null as int64) as phev_net_change_yoy,
+              cast(null as float64) as phev_growth_rate_yoy,
+              cast(null as int64) as plug_in_vehicle_net_change_mom,
+              cast(null as float64) as plug_in_vehicle_growth_rate_mom,
+              cast(null as int64) as plug_in_vehicle_net_change_yoy,
+              cast(null as float64) as plug_in_vehicle_growth_rate_yoy,
+              0 as source_dash_row_count,
+              0 as source_bev_dash_row_count,
+              0 as source_phev_dash_row_count,
+              cast(null as int64) as mom_comparison_dash_row_count,
+              cast(null as int64) as mom_comparison_bev_dash_row_count,
+              cast(null as int64) as mom_comparison_phev_dash_row_count,
+              cast(null as int64) as yoy_comparison_dash_row_count,
+              cast(null as int64) as yoy_comparison_bev_dash_row_count,
+              cast(null as int64) as yoy_comparison_phev_dash_row_count,
+              'lta_m09_powertrain_v1' as classification_version,
+              'unit_test_release' as source_release_key,
+              date '2026-06-15' as source_retrieved_date,
+              date '2026-05-31' as latest_source_month_end
+          from mart_rows
+    expect:
+      rows: []
+
+exposures:
+  - name: how_fast_is_singapores_registered_vehicle_fleet_electrifying
+    label: How Fast Is Singapore's Registered Vehicle Fleet Electrifying?
+    type: dashboard
+    maturity: medium
+    description: >
+      Looker Studio national page for the latest LTA M09 registered-vehicle stock, showing
+      BEV/PHEV/plug-in shares and MoM/YoY growth by vehicle scope. A stable report URL has not
+      yet been assigned.
+    depends_on:
+      - ref('rpt_national_ev_adoption_current')
+      - ref('mart_national_ev_adoption_monthly')
+    owner:
+      name: Ryan Tang
