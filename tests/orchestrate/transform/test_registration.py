@@ -52,6 +52,14 @@ def test_dbt_models_discovered_as_assets():
         "marts/fct_supply_demand_daily",
         "marts/mart_supply_demand_gap",
         "marts/rpt_supply_demand_gap_current",
+        "seed/lta_monthly_vehicle_population_by_fuel",
+        "seed/lta_monthly_vehicle_population_releases",
+        "seed/lta_fuel_type_classification",
+        "staging/stg_lta_monthly_vehicle_population_by_fuel",
+        "staging/stg_lta_monthly_vehicle_population_releases",
+        "marts/fct_national_ev_adoption_monthly",
+        "marts/mart_national_ev_adoption_monthly",
+        "marts/rpt_national_ev_adoption_current",
     ]:
         assert k in keys, k
 
@@ -134,6 +142,65 @@ def test_population_and_supply_demand_lineage():
         AssetKey(["marts", "rpt_supply_demand_gap_current"])
     )
     assert AssetKey(["marts", "mart_supply_demand_gap"]) in current_report.parent_keys
+
+
+def test_national_ev_adoption_lineage():
+    graph = _graph()
+
+    fuel_staging = graph.get(
+        AssetKey(["staging", "stg_lta_monthly_vehicle_population_by_fuel"])
+    )
+    assert (
+        AssetKey(["seed", "lta_monthly_vehicle_population_by_fuel"])
+        in fuel_staging.parent_keys
+    )
+
+    release_staging = graph.get(
+        AssetKey(["staging", "stg_lta_monthly_vehicle_population_releases"])
+    )
+    assert (
+        AssetKey(["seed", "lta_monthly_vehicle_population_releases"])
+        in release_staging.parent_keys
+    )
+
+    fact = graph.get(AssetKey(["marts", "fct_national_ev_adoption_monthly"]))
+    assert (
+        AssetKey(["staging", "stg_lta_monthly_vehicle_population_by_fuel"])
+        in fact.parent_keys
+    )
+    assert (
+        AssetKey(["staging", "stg_lta_monthly_vehicle_population_releases"])
+        in fact.parent_keys
+    )
+    assert AssetKey(["seed", "lta_fuel_type_classification"]) in fact.parent_keys
+
+    mart = graph.get(AssetKey(["marts", "mart_national_ev_adoption_monthly"]))
+    assert AssetKey(["marts", "fct_national_ev_adoption_monthly"]) in mart.parent_keys
+
+    report = graph.get(AssetKey(["marts", "rpt_national_ev_adoption_current"]))
+    assert AssetKey(["marts", "mart_national_ev_adoption_monthly"]) in report.parent_keys
+
+    # The adoption chain must stay fully independent of the supply-demand chain:
+    # no edge in either direction.
+    adoption_keys = {
+        AssetKey(["seed", "lta_monthly_vehicle_population_by_fuel"]),
+        AssetKey(["seed", "lta_monthly_vehicle_population_releases"]),
+        AssetKey(["seed", "lta_fuel_type_classification"]),
+        AssetKey(["staging", "stg_lta_monthly_vehicle_population_by_fuel"]),
+        AssetKey(["staging", "stg_lta_monthly_vehicle_population_releases"]),
+        AssetKey(["marts", "fct_national_ev_adoption_monthly"]),
+        AssetKey(["marts", "mart_national_ev_adoption_monthly"]),
+        AssetKey(["marts", "rpt_national_ev_adoption_current"]),
+    }
+    supply_demand_keys = {
+        AssetKey(["marts", "fct_supply_demand_daily"]),
+        AssetKey(["marts", "mart_supply_demand_gap"]),
+        AssetKey(["marts", "rpt_supply_demand_gap_current"]),
+    }
+    for key in supply_demand_keys:
+        assert not adoption_keys & graph.get(key).parent_keys, key
+    for key in adoption_keys:
+        assert not supply_demand_keys & graph.get(key).parent_keys, key
 
 
 def test_dbt_build_schedule_registered():
