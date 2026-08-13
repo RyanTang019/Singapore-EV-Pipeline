@@ -36,6 +36,20 @@ validated_candidate as (
             + mart.non_plug_in_vehicle_population
             = mart.total_vehicle_population
         ) = 6
+        and countif(
+            mart.bev_share is not distinct from safe_divide(
+                mart.bev_population,
+                mart.total_vehicle_population
+            )
+            and mart.phev_share is not distinct from safe_divide(
+                mart.phev_population,
+                mart.total_vehicle_population
+            )
+            and mart.plug_in_vehicle_share is not distinct from safe_divide(
+                mart.plug_in_vehicle_population,
+                mart.total_vehicle_population
+            )
+        ) = 6
 
 ),
 
