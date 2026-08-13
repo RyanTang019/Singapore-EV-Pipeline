@@ -90,7 +90,10 @@ models:
       all_vehicles rollup, exactly six rows per spine month). Publishes stock components, shares,
       MoM/YoY net-change and growth, and dash-row diagnostics for the displayed month and both
       comparison months. Shares are NULL on incomplete rows; net-change/growth are NULL unless
-      both endpoint months are complete for the scope. Stock levels, not registrations.
+      both endpoint months are complete for the scope. Because the spine is continuous, a scope
+      month with no source rows at all still emits a row: its stock components and release
+      provenance are NULL by design, and adoption_data_status plus
+      represented_vehicle_category_count carry that signal. Stock levels, not registrations.
     config:
       contract:
         enforced: true
@@ -129,12 +132,12 @@ models:
                 values: [complete, incomplete]
       - {name: represented_vehicle_category_count, data_type: int64, tests: [not_null]}
       - {name: expected_vehicle_category_count, data_type: int64, tests: [not_null]}
-      - {name: total_vehicle_population, data_type: int64, tests: [not_null]}
-      - {name: bev_population, data_type: int64, tests: [not_null]}
-      - {name: phev_population, data_type: int64, tests: [not_null]}
-      - {name: plug_in_vehicle_population, data_type: int64, tests: [not_null]}
-      - {name: non_plug_in_vehicle_population, data_type: int64, tests: [not_null]}
-      - {name: non_plug_in_hybrid_population, data_type: int64, tests: [not_null]}
+      - {name: total_vehicle_population, data_type: int64, description: NULL when the scope has no source rows for the month.}
+      - {name: bev_population, data_type: int64, description: NULL when the scope has no source rows for the month.}
+      - {name: phev_population, data_type: int64, description: NULL when the scope has no source rows for the month.}
+      - {name: plug_in_vehicle_population, data_type: int64, description: NULL when the scope has no source rows for the month.}
+      - {name: non_plug_in_vehicle_population, data_type: int64, description: NULL when the scope has no source rows for the month.}
+      - {name: non_plug_in_hybrid_population, data_type: int64, description: NULL when the scope has no source rows for the month.}
       - {name: bev_share, data_type: float64}
       - {name: phev_share, data_type: float64}
       - {name: plug_in_vehicle_share, data_type: float64}
@@ -159,10 +162,10 @@ models:
       - {name: yoy_comparison_dash_row_count, data_type: int64}
       - {name: yoy_comparison_bev_dash_row_count, data_type: int64}
       - {name: yoy_comparison_phev_dash_row_count, data_type: int64}
-      - {name: classification_version, data_type: string, tests: [not_null]}
-      - {name: source_release_key, data_type: string, tests: [not_null]}
-      - {name: source_retrieved_date, data_type: date, tests: [not_null]}
-      - {name: latest_source_month_end, data_type: date, tests: [not_null]}
+      - {name: classification_version, data_type: string, description: NULL when the scope has no source rows for the month.}
+      - {name: source_release_key, data_type: string, description: NULL when the scope has no source rows for the month.}
+      - {name: source_retrieved_date, data_type: date, description: NULL when the scope has no source rows for the month.}
+      - {name: latest_source_month_end, data_type: date, description: NULL when the scope has no source rows for the month.}
 
   - name: rpt_national_ev_adoption_current
     description: >
