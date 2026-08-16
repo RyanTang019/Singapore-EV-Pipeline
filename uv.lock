@@ -3649,6 +3649,7 @@ dependencies = [
 dev = [
     { name = "geomet" },
     { name = "pytest" },
+    { name = "pyyaml" },
     { name = "ruff" },
     { name = "sqlfluff" },
     { name = "sqlfluff-templater-dbt" },
@@ -3673,6 +3674,7 @@ requires-dist = [
 dev = [
     { name = "geomet", specifier = ">=1.1.0" },
     { name = "pytest", specifier = ">=8" },
+    { name = "pyyaml", specifier = ">=6" },
     { name = "ruff" },
     { name = "sqlfluff" },
     { name = "sqlfluff-templater-dbt" },

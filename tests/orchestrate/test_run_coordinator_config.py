@@ -2,8 +2,8 @@
 
 QueuedRunCoordinator defaults max_concurrent_runs to 10 when unset; the 4GB VM
 is intended to run one job at a time (PROJECT_CONTEXT). Three ingestion schedules
-already fire together every :00/:30, and the dbt build joins them — so serial
-execution must be pinned to 1 explicitly.
+already fire together every :00/:30, and manual work can overlap them — so serial execution
+must be pinned to 1 explicitly.
 """
 
 from pathlib import Path
