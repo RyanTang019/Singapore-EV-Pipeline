@@ -1,0 +1,792 @@
+version: 2
+
+models:
+  - name: fct_national_ev_adoption_monthly
+    description: >
+      National registered-vehicle stock at month_end x vehicle_type x source_fuel_type for the
+      single active LTA M09 release. Retains every published fuel row, carries the exact source
+      labels and count token, the versioned powertrain classification, and the release provenance
+      needed to attribute any published figure. Stock, not registrations.
+    columns:
+      - name: adoption_fact_key
+        description: >
+          MD5 of month_end, vehicle_type, and source_fuel_type. The release key is deliberately
+          excluded because staging enforces exactly one active source release.
+        tests: [unique, not_null]
+      - name: source_release_key
+        description: Release-identity key of the active controlled source release.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_lta_monthly_vehicle_population_releases')
+                field: source_release_key
+      - name: source_dataset_id
+        description: Repository-owned stable source identity.
+        tests: [not_null]
+      - name: month_end
+        description: Last calendar day of the source reporting month.
+        tests: [not_null]
+      - name: vehicle_type
+        description: Controlled normalized vehicle-type key.
+        tests: [not_null]
+      - name: source_fuel_type
+        description: Exact LTA fuel label.
+        tests: [not_null]
+      - name: source_vehicle_category
+        description: Exact LTA vehicle category label.
+        tests: [not_null]
+      - name: source_value_token
+        description: Exact source count token, including '-'.
+        tests: [not_null]
+      - name: source_value_status
+        description: Whether the measure was reported numerically or dash-normalized.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - reported_numeric
+                  - source_dash_zero
+      - name: powertrain_group
+        description: Controlled powertrain classification for this fuel label.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - combustion
+                  - non_plug_in_hybrid
+                  - battery_electric
+                  - plug_in_hybrid
+      - name: classification_version
+        description: Powertrain policy version applied to this row.
+        tests: [not_null]
+      - name: csv_sha256
+        description: Lower-case SHA-256 of the canonical CSV member of the active release.
+        tests: [not_null]
+      - name: vehicle_population
+        description: Non-negative normalized registered stock for the grain.
+        tests: [not_null]
+      - name: is_bev
+        description: True only for the Electric label.
+        tests: [not_null]
+      - name: is_phev
+        description: True only for the two (Plug-In) labels.
+        tests: [not_null]
+      - name: is_plug_in_vehicle
+        description: is_bev or is_phev.
+        tests: [not_null]
+      - name: source_retrieved_date
+        description: Explicit date the project retrieved the official archive.
+        tests: [not_null]
+      - name: latest_source_month_end
+        description: Latest month represented by the active release.
+        tests: [not_null]
+
+  - name: mart_national_ev_adoption_monthly
+    description: >
+      National EV adoption at month_end x vehicle_scope (five normalized vehicle types plus an
+      all_vehicles rollup, exactly six rows per spine month). Publishes stock components, shares,
+      MoM/YoY net-change and growth, and dash-row diagnostics for the displayed month and both
+      comparison months. Shares are NULL on incomplete rows; net-change/growth are NULL unless
+      both endpoint months are complete for the scope. Because the spine is continuous, a scope
+      month with no source rows at all still emits a row: its stock components and release
+      provenance are NULL by design, and adoption_data_status plus
+      represented_vehicle_category_count carry that signal. Stock levels, not registrations.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: adoption_month_scope_key
+        data_type: string
+        description: MD5 of month_end and vehicle_scope.
+        tests: [unique, not_null]
+      - name: month_end
+        data_type: date
+        description: Last calendar day of the reporting month, from a continuous spine.
+        tests: [not_null]
+      - name: vehicle_scope
+        data_type: string
+        description: One of the five normalized vehicle types or the all_vehicles rollup.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - cars
+                  - taxis
+                  - motorcycles
+                  - goods_and_other_vehicles
+                  - buses
+                  - all_vehicles
+      - name: adoption_data_status
+        data_type: string
+        description: >
+          complete only when category representation, classification consistency, and component
+          reconciliation all hold for the scope month.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [complete, incomplete]
+      - {name: represented_vehicle_category_count, data_type: int64, tests: [not_null]}
+      - {name: expected_vehicle_category_count, data_type: int64, tests: [not_null]}
+      - {name: total_vehicle_population, data_type: int64, description: NULL when the scope has no source rows for the month.}
+      - {name: bev_population, data_type: int64, description: NULL when the scope has no source rows for the month.}
+      - {name: phev_population, data_type: int64, description: NULL when the scope has no source rows for the month.}
+      - {name: plug_in_vehicle_population, data_type: int64, description: NULL when the scope has no source rows for the month.}
+      - {name: non_plug_in_vehicle_population, data_type: int64, description: NULL when the scope has no source rows for the month.}
+      - {name: non_plug_in_hybrid_population, data_type: int64, description: NULL when the scope has no source rows for the month.}
+      - {name: bev_share, data_type: float64}
+      - {name: phev_share, data_type: float64}
+      - {name: plug_in_vehicle_share, data_type: float64}
+      - {name: bev_net_change_mom, data_type: int64}
+      - {name: bev_growth_rate_mom, data_type: float64}
+      - {name: bev_net_change_yoy, data_type: int64}
+      - {name: bev_growth_rate_yoy, data_type: float64}
+      - {name: phev_net_change_mom, data_type: int64}
+      - {name: phev_growth_rate_mom, data_type: float64}
+      - {name: phev_net_change_yoy, data_type: int64}
+      - {name: phev_growth_rate_yoy, data_type: float64}
+      - {name: plug_in_vehicle_net_change_mom, data_type: int64}
+      - {name: plug_in_vehicle_growth_rate_mom, data_type: float64}
+      - {name: plug_in_vehicle_net_change_yoy, data_type: int64}
+      - {name: plug_in_vehicle_growth_rate_yoy, data_type: float64}
+      - {name: source_dash_row_count, data_type: int64, tests: [not_null]}
+      - {name: source_bev_dash_row_count, data_type: int64, tests: [not_null]}
+      - {name: source_phev_dash_row_count, data_type: int64, tests: [not_null]}
+      - {name: mom_comparison_dash_row_count, data_type: int64}
+      - {name: mom_comparison_bev_dash_row_count, data_type: int64}
+      - {name: mom_comparison_phev_dash_row_count, data_type: int64}
+      - {name: yoy_comparison_dash_row_count, data_type: int64}
+      - {name: yoy_comparison_bev_dash_row_count, data_type: int64}
+      - {name: yoy_comparison_phev_dash_row_count, data_type: int64}
+      - {name: classification_version, data_type: string, description: NULL when the scope has no source rows for the month.}
+      - {name: source_release_key, data_type: string, description: NULL when the scope has no source rows for the month.}
+      - {name: source_retrieved_date, data_type: date, description: NULL when the scope has no source rows for the month.}
+      - {name: latest_source_month_end, data_type: date, description: NULL when the scope has no source rows for the month.}
+
+  - name: rpt_national_ev_adoption_current
+    description: >
+      Fail-closed current national EV adoption slice: the latest mart month, emitted only when
+      that month is a full six-scope complete slice, otherwise zero rows. One row per
+      vehicle_scope (six expected). Contains no temporal-typed columns so a Looker date control
+      cannot hide the page; all dates are exposed as strings.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - {name: adoption_month_scope_key, data_type: string, description: MD5 of month_end and vehicle_scope., tests: [unique, not_null]}
+      - {name: as_of_month, data_type: string, description: Latest reporting month as YYYY-MM., tests: [not_null]}
+      - name: vehicle_scope
+        data_type: string
+        description: One of the five normalized vehicle types or the all_vehicles rollup.
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - cars
+                  - taxis
+                  - motorcycles
+                  - goods_and_other_vehicles
+                  - buses
+                  - all_vehicles
+      - name: adoption_data_status
+        data_type: string
+        description: Restricted to complete at this fail-closed reporting boundary.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [complete]
+      - {name: represented_vehicle_category_count, data_type: int64, tests: [not_null]}
+      - {name: expected_vehicle_category_count, data_type: int64, tests: [not_null]}
+      - {name: total_vehicle_population, data_type: int64, tests: [not_null]}
+      - {name: bev_population, data_type: int64, tests: [not_null]}
+      - {name: phev_population, data_type: int64, tests: [not_null]}
+      - {name: plug_in_vehicle_population, data_type: int64, tests: [not_null]}
+      - {name: non_plug_in_vehicle_population, data_type: int64, tests: [not_null]}
+      - {name: non_plug_in_hybrid_population, data_type: int64, tests: [not_null]}
+      - {name: bev_share, data_type: float64, tests: [not_null]}
+      - {name: phev_share, data_type: float64, tests: [not_null]}
+      - {name: plug_in_vehicle_share, data_type: float64, tests: [not_null]}
+      - {name: bev_net_change_mom, data_type: int64}
+      - {name: bev_growth_rate_mom, data_type: float64}
+      - {name: bev_net_change_yoy, data_type: int64}
+      - {name: bev_growth_rate_yoy, data_type: float64}
+      - {name: phev_net_change_mom, data_type: int64}
+      - {name: phev_growth_rate_mom, data_type: float64}
+      - {name: phev_net_change_yoy, data_type: int64}
+      - {name: phev_growth_rate_yoy, data_type: float64}
+      - {name: plug_in_vehicle_net_change_mom, data_type: int64}
+      - {name: plug_in_vehicle_growth_rate_mom, data_type: float64}
+      - {name: plug_in_vehicle_net_change_yoy, data_type: int64}
+      - {name: plug_in_vehicle_growth_rate_yoy, data_type: float64}
+      - {name: source_dash_row_count, data_type: int64, tests: [not_null]}
+      - {name: source_bev_dash_row_count, data_type: int64, tests: [not_null]}
+      - {name: source_phev_dash_row_count, data_type: int64, tests: [not_null]}
+      - {name: mom_comparison_dash_row_count, data_type: int64}
+      - {name: mom_comparison_bev_dash_row_count, data_type: int64}
+      - {name: mom_comparison_phev_dash_row_count, data_type: int64}
+      - {name: yoy_comparison_dash_row_count, data_type: int64}
+      - {name: yoy_comparison_bev_dash_row_count, data_type: int64}
+      - {name: yoy_comparison_phev_dash_row_count, data_type: int64}
+      - {name: classification_version, data_type: string, tests: [not_null]}
+      - {name: source_release_key, data_type: string, tests: [not_null]}
+      - {name: source_retrieved, data_type: string, description: Human-readable retrieval date (Retrieved YYYY-MM-DD)., tests: [not_null]}
+      - {name: latest_source_month, data_type: string, description: Latest month represented by the active release as YYYY-MM., tests: [not_null]}
+
+unit_tests:
+  - name: mart_national_ev_adoption_monthly_classification_completeness_and_growth
+    description: >
+      Proves powertrain classification (Electric is BEV, both (Plug-In) labels are PHEV,
+      non-plug-in hybrids excluded from plug-in but counted in non_plug_in_hybrid_population),
+      absent-fuel-contributes-zero behavior, the all_vehicles rollup, LAG(1)/LAG(12) net-change
+      and SAFE_DIVIDE growth math, NULL rates on zero or missing comparison denominators,
+      NULL net-change/growth when either endpoint month is incomplete, and dash-row diagnostics
+      surfacing in own-month, MoM-comparison, and YoY-comparison counts. Fixture: 13 continuous
+      months (2025-01..2026-01); month 1 has a BEV dash row in cars and no taxis rows at all.
+    model: mart_national_ev_adoption_monthly
+    given:
+      - input: ref('fct_national_ev_adoption_monthly')
+        format: sql
+        rows: |
+          with month_index as (
+              select
+                  month_offset + 1 as month_number,
+                  last_day(month_start) as month_end
+              from unnest(
+                  generate_date_array(date '2025-01-01', date '2026-01-01', interval 1 month)
+              ) as month_start with offset as month_offset
+          ),
+
+          fuel_rows as (
+              select
+                  month_end,
+                  'cars' as vehicle_type,
+                  'battery_electric' as powertrain_group,
+                  true as is_bev,
+                  false as is_phev,
+                  true as is_plug_in_vehicle,
+                  case month_number when 1 then 0 when 2 then 16 when 13 then 24 else 20 end
+                      as vehicle_population,
+                  case month_number when 1 then 'source_dash_zero' else 'reported_numeric' end
+                      as source_value_status
+              from month_index
+              union all
+              select
+                  month_end, 'cars', 'plug_in_hybrid', false, true, true,
+                  case month_number when 1 then 8 when 2 then 8 when 13 then 12 else 10 end,
+                  'reported_numeric'
+              from month_index
+              union all
+              select
+                  month_end, 'cars', 'non_plug_in_hybrid', false, false, false,
+                  4, 'reported_numeric'
+              from month_index
+              union all
+              select
+                  month_end, 'cars', 'combustion', false, false, false,
+                  case month_number when 1 then 116 when 2 then 100 when 13 then 88 else 94 end,
+                  'reported_numeric'
+              from month_index
+              union all
+              select
+                  month_end, 'taxis', 'combustion', false, false, false,
+                  40, 'reported_numeric'
+              from month_index
+              where month_number > 1
+              union all
+              select
+                  month_end, 'motorcycles', 'combustion', false, false, false,
+                  72, 'reported_numeric'
+              from month_index
+              union all
+              select
+                  month_end, 'goods_and_other_vehicles', 'combustion', false, false, false,
+                  100, 'reported_numeric'
+              from month_index
+              union all
+              select
+                  month_end, 'buses', 'combustion', false, false, false,
+                  50, 'reported_numeric'
+              from month_index
+              union all
+              select
+                  month_end, 'buses', 'non_plug_in_hybrid', false, false, false,
+                  10, 'reported_numeric'
+              from month_index
+          )
+
+          select
+              month_end,
+              vehicle_type,
+              powertrain_group,
+              is_bev,
+              is_phev,
+              is_plug_in_vehicle,
+              vehicle_population,
+              source_value_status,
+              'lta_m09_powertrain_v1' as classification_version,
+              'unit_test_release' as source_release_key,
+              date '2026-07-23' as source_retrieved_date,
+              date '2026-01-31' as latest_source_month_end
+          from fuel_rows
+    expect:
+      format: sql
+      rows: |
+        with mid_months as (
+            select month_end
+            from unnest([
+                date '2025-04-30', date '2025-05-31', date '2025-06-30',
+                date '2025-07-31', date '2025-08-31', date '2025-09-30',
+                date '2025-10-31', date '2025-11-30', date '2025-12-31'
+            ]) as month_end
+        ),
+
+        steady_months as (
+            select month_end
+            from unnest([
+                date '2025-02-28', date '2025-03-31', date '2025-04-30',
+                date '2025-05-31', date '2025-06-30', date '2025-07-31',
+                date '2025-08-31', date '2025-09-30', date '2025-10-31',
+                date '2025-11-30', date '2025-12-31'
+            ]) as month_end
+        ),
+
+        taxi_steady_months as (
+            select month_end
+            from unnest([
+                date '2025-03-31', date '2025-04-30', date '2025-05-31',
+                date '2025-06-30', date '2025-07-31', date '2025-08-31',
+                date '2025-09-30', date '2025-10-31', date '2025-11-30',
+                date '2025-12-31'
+            ]) as month_end
+        ),
+
+        expected_rows as (
+
+        select
+            date '2025-01-31' as month_end,
+            'cars' as vehicle_scope,
+            'complete' as adoption_data_status,
+            1 as represented_vehicle_category_count,
+            1 as expected_vehicle_category_count,
+            128 as total_vehicle_population,
+            0 as bev_population,
+            8 as phev_population,
+            8 as plug_in_vehicle_population,
+            120 as non_plug_in_vehicle_population,
+            4 as non_plug_in_hybrid_population,
+            0.0 as bev_share,
+            0.0625 as phev_share,
+            0.0625 as plug_in_vehicle_share,
+            cast(null as int64) as bev_net_change_mom,
+            cast(null as float64) as bev_growth_rate_mom,
+            cast(null as int64) as bev_net_change_yoy,
+            cast(null as float64) as bev_growth_rate_yoy,
+            cast(null as int64) as phev_net_change_mom,
+            cast(null as float64) as phev_growth_rate_mom,
+            cast(null as int64) as phev_net_change_yoy,
+            cast(null as float64) as phev_growth_rate_yoy,
+            cast(null as int64) as plug_in_vehicle_net_change_mom,
+            cast(null as float64) as plug_in_vehicle_growth_rate_mom,
+            cast(null as int64) as plug_in_vehicle_net_change_yoy,
+            cast(null as float64) as plug_in_vehicle_growth_rate_yoy,
+            1 as source_dash_row_count,
+            1 as source_bev_dash_row_count,
+            0 as source_phev_dash_row_count,
+            cast(null as int64) as mom_comparison_dash_row_count,
+            cast(null as int64) as mom_comparison_bev_dash_row_count,
+            cast(null as int64) as mom_comparison_phev_dash_row_count,
+            cast(null as int64) as yoy_comparison_dash_row_count,
+            cast(null as int64) as yoy_comparison_bev_dash_row_count,
+            cast(null as int64) as yoy_comparison_phev_dash_row_count
+        union all
+        select
+            date '2025-02-28', 'cars', 'complete', 1, 1,
+            128, 16, 8, 24, 104, 4,
+            0.125, 0.0625, 0.1875,
+            16, null, null, null,
+            0, 0.0, null, null,
+            16, 2.0, null, null,
+            0, 0, 0,
+            1, 1, 0,
+            null, null, null
+        union all
+        select
+            date '2025-03-31', 'cars', 'complete', 1, 1,
+            128, 20, 10, 30, 98, 4,
+            0.15625, 0.078125, 0.234375,
+            4, 0.25, null, null,
+            2, 0.25, null, null,
+            6, 0.25, null, null,
+            0, 0, 0,
+            0, 0, 0,
+            null, null, null
+        union all
+        select
+            month_end, 'cars', 'complete', 1, 1,
+            128, 20, 10, 30, 98, 4,
+            0.15625, 0.078125, 0.234375,
+            0, 0.0, null, null,
+            0, 0.0, null, null,
+            0, 0.0, null, null,
+            0, 0, 0,
+            0, 0, 0,
+            null, null, null
+        from mid_months
+        union all
+        select
+            date '2026-01-31', 'cars', 'complete', 1, 1,
+            128, 24, 12, 36, 92, 4,
+            0.1875, 0.09375, 0.28125,
+            4, 0.2, 24, null,
+            2, 0.2, 4, 0.5,
+            6, 0.2, 28, 3.5,
+            0, 0, 0,
+            0, 0, 0,
+            1, 1, 0
+        union all
+        select
+            date '2025-01-31', 'all_vehicles', 'incomplete', 4, 5,
+            360, 0, 8, 8, 352, 14,
+            null, null, null,
+            null, null, null, null,
+            null, null, null, null,
+            null, null, null, null,
+            1, 1, 0,
+            null, null, null,
+            null, null, null
+        union all
+        select
+            date '2025-02-28', 'all_vehicles', 'complete', 5, 5,
+            400, 16, 8, 24, 376, 14,
+            0.04, 0.02, 0.06,
+            null, null, null, null,
+            null, null, null, null,
+            null, null, null, null,
+            0, 0, 0,
+            1, 1, 0,
+            null, null, null
+        union all
+        select
+            date '2025-03-31', 'all_vehicles', 'complete', 5, 5,
+            400, 20, 10, 30, 370, 14,
+            0.05, 0.025, 0.075,
+            4, 0.25, null, null,
+            2, 0.25, null, null,
+            6, 0.25, null, null,
+            0, 0, 0,
+            0, 0, 0,
+            null, null, null
+        union all
+        select
+            month_end, 'all_vehicles', 'complete', 5, 5,
+            400, 20, 10, 30, 370, 14,
+            0.05, 0.025, 0.075,
+            0, 0.0, null, null,
+            0, 0.0, null, null,
+            0, 0.0, null, null,
+            0, 0, 0,
+            0, 0, 0,
+            null, null, null
+        from mid_months
+        union all
+        select
+            date '2026-01-31', 'all_vehicles', 'complete', 5, 5,
+            400, 24, 12, 36, 364, 14,
+            0.06, 0.03, 0.09,
+            4, 0.2, null, null,
+            2, 0.2, null, null,
+            6, 0.2, null, null,
+            0, 0, 0,
+            0, 0, 0,
+            1, 1, 0
+        union all
+        select
+            date '2025-01-31', 'taxis', 'incomplete', 0, 1,
+            null, null, null, null, null, null,
+            null, null, null,
+            null, null, null, null,
+            null, null, null, null,
+            null, null, null, null,
+            0, 0, 0,
+            null, null, null,
+            null, null, null
+        union all
+        select
+            date '2025-02-28', 'taxis', 'complete', 1, 1,
+            40, 0, 0, 0, 40, 0,
+            0.0, 0.0, 0.0,
+            null, null, null, null,
+            null, null, null, null,
+            null, null, null, null,
+            0, 0, 0,
+            0, 0, 0,
+            null, null, null
+        union all
+        select
+            month_end, 'taxis', 'complete', 1, 1,
+            40, 0, 0, 0, 40, 0,
+            0.0, 0.0, 0.0,
+            0, null, null, null,
+            0, null, null, null,
+            0, null, null, null,
+            0, 0, 0,
+            0, 0, 0,
+            null, null, null
+        from taxi_steady_months
+        union all
+        select
+            date '2026-01-31', 'taxis', 'complete', 1, 1,
+            40, 0, 0, 0, 40, 0,
+            0.0, 0.0, 0.0,
+            0, null, null, null,
+            0, null, null, null,
+            0, null, null, null,
+            0, 0, 0,
+            0, 0, 0,
+            0, 0, 0
+        union all
+        select
+            date '2025-01-31', 'motorcycles', 'complete', 1, 1,
+            72, 0, 0, 0, 72, 0,
+            0.0, 0.0, 0.0,
+            null, null, null, null,
+            null, null, null, null,
+            null, null, null, null,
+            0, 0, 0,
+            null, null, null,
+            null, null, null
+        union all
+        select
+            month_end, 'motorcycles', 'complete', 1, 1,
+            72, 0, 0, 0, 72, 0,
+            0.0, 0.0, 0.0,
+            0, null, null, null,
+            0, null, null, null,
+            0, null, null, null,
+            0, 0, 0,
+            0, 0, 0,
+            null, null, null
+        from steady_months
+        union all
+        select
+            date '2026-01-31', 'motorcycles', 'complete', 1, 1,
+            72, 0, 0, 0, 72, 0,
+            0.0, 0.0, 0.0,
+            0, null, 0, null,
+            0, null, 0, null,
+            0, null, 0, null,
+            0, 0, 0,
+            0, 0, 0,
+            0, 0, 0
+        union all
+        select
+            date '2025-01-31', 'goods_and_other_vehicles', 'complete', 1, 1,
+            100, 0, 0, 0, 100, 0,
+            0.0, 0.0, 0.0,
+            null, null, null, null,
+            null, null, null, null,
+            null, null, null, null,
+            0, 0, 0,
+            null, null, null,
+            null, null, null
+        union all
+        select
+            month_end, 'goods_and_other_vehicles', 'complete', 1, 1,
+            100, 0, 0, 0, 100, 0,
+            0.0, 0.0, 0.0,
+            0, null, null, null,
+            0, null, null, null,
+            0, null, null, null,
+            0, 0, 0,
+            0, 0, 0,
+            null, null, null
+        from steady_months
+        union all
+        select
+            date '2026-01-31', 'goods_and_other_vehicles', 'complete', 1, 1,
+            100, 0, 0, 0, 100, 0,
+            0.0, 0.0, 0.0,
+            0, null, 0, null,
+            0, null, 0, null,
+            0, null, 0, null,
+            0, 0, 0,
+            0, 0, 0,
+            0, 0, 0
+        union all
+        select
+            date '2025-01-31', 'buses', 'complete', 1, 1,
+            60, 0, 0, 0, 60, 10,
+            0.0, 0.0, 0.0,
+            null, null, null, null,
+            null, null, null, null,
+            null, null, null, null,
+            0, 0, 0,
+            null, null, null,
+            null, null, null
+        union all
+        select
+            month_end, 'buses', 'complete', 1, 1,
+            60, 0, 0, 0, 60, 10,
+            0.0, 0.0, 0.0,
+            0, null, null, null,
+            0, null, null, null,
+            0, null, null, null,
+            0, 0, 0,
+            0, 0, 0,
+            null, null, null
+        from steady_months
+        union all
+        select
+            date '2026-01-31', 'buses', 'complete', 1, 1,
+            60, 0, 0, 0, 60, 10,
+            0.0, 0.0, 0.0,
+            0, null, 0, null,
+            0, null, 0, null,
+            0, null, 0, null,
+            0, 0, 0,
+            0, 0, 0,
+            0, 0, 0
+
+        )
+
+        select
+            to_hex(
+                md5(concat(cast(expected_rows.month_end as string), '|', expected_rows.vehicle_scope))
+            ) as adoption_month_scope_key,
+            expected_rows.*,
+            if(
+                expected_rows.vehicle_scope = 'taxis'
+                and expected_rows.month_end = date '2025-01-31',
+                null,
+                'lta_m09_powertrain_v1'
+            ) as classification_version,
+            if(
+                expected_rows.vehicle_scope = 'taxis'
+                and expected_rows.month_end = date '2025-01-31',
+                null,
+                'unit_test_release'
+            ) as source_release_key,
+            if(
+                expected_rows.vehicle_scope = 'taxis'
+                and expected_rows.month_end = date '2025-01-31',
+                null,
+                date '2026-07-23'
+            ) as source_retrieved_date,
+            if(
+                expected_rows.vehicle_scope = 'taxis'
+                and expected_rows.month_end = date '2025-01-31',
+                null,
+                date '2026-01-31'
+            ) as latest_source_month_end
+        from expected_rows
+
+  - name: rpt_national_ev_adoption_current_fails_closed_on_latest_incomplete_candidate
+    description: >
+      Proves the current report emits zero rows when the latest mart month is not a full
+      six-scope complete slice, and does not fall back to an older complete month. Fixture:
+      2026-04-30 has six complete reconciling scopes; the later 2026-05-31 candidate has the
+      buses scope incomplete (five of six complete), which must block publication entirely.
+    model: rpt_national_ev_adoption_current
+    given:
+      - input: ref('mart_national_ev_adoption_monthly')
+        format: sql
+        rows: |
+          with scopes as (
+              select scope.vehicle_scope, scope.expected_count
+              from unnest([
+                  struct('cars' as vehicle_scope, 1 as expected_count),
+                  struct('taxis', 1),
+                  struct('motorcycles', 1),
+                  struct('goods_and_other_vehicles', 1),
+                  struct('buses', 1),
+                  struct('all_vehicles', 5)
+              ]) as scope
+          ),
+
+          candidate_months as (
+              select candidate.month_end, candidate.is_latest
+              from unnest([
+                  struct(date '2026-04-30' as month_end, false as is_latest),
+                  struct(date '2026-05-31', true)
+              ]) as candidate
+          ),
+
+          mart_rows as (
+              select
+                  candidate_months.month_end,
+                  scopes.vehicle_scope,
+                  scopes.expected_count,
+                  candidate_months.is_latest and scopes.vehicle_scope = 'buses'
+                      as is_incomplete_row
+              from candidate_months
+              cross join scopes
+          )
+
+          select
+              to_hex(md5(concat(cast(month_end as string), '|', vehicle_scope)))
+                  as adoption_month_scope_key,
+              month_end,
+              vehicle_scope,
+              if(is_incomplete_row, 'incomplete', 'complete') as adoption_data_status,
+              if(is_incomplete_row, 0, expected_count)
+                  as represented_vehicle_category_count,
+              expected_count as expected_vehicle_category_count,
+              100 as total_vehicle_population,
+              10 as bev_population,
+              5 as phev_population,
+              15 as plug_in_vehicle_population,
+              85 as non_plug_in_vehicle_population,
+              4 as non_plug_in_hybrid_population,
+              if(is_incomplete_row, cast(null as float64), 0.1) as bev_share,
+              if(is_incomplete_row, cast(null as float64), 0.05) as phev_share,
+              if(is_incomplete_row, cast(null as float64), 0.15) as plug_in_vehicle_share,
+              cast(null as int64) as bev_net_change_mom,
+              cast(null as float64) as bev_growth_rate_mom,
+              cast(null as int64) as bev_net_change_yoy,
+              cast(null as float64) as bev_growth_rate_yoy,
+              cast(null as int64) as phev_net_change_mom,
+              cast(null as float64) as phev_growth_rate_mom,
+              cast(null as int64) as phev_net_change_yoy,
+              cast(null as float64) as phev_growth_rate_yoy,
+              cast(null as int64) as plug_in_vehicle_net_change_mom,
+              cast(null as float64) as plug_in_vehicle_growth_rate_mom,
+              cast(null as int64) as plug_in_vehicle_net_change_yoy,
+              cast(null as float64) as plug_in_vehicle_growth_rate_yoy,
+              0 as source_dash_row_count,
+              0 as source_bev_dash_row_count,
+              0 as source_phev_dash_row_count,
+              cast(null as int64) as mom_comparison_dash_row_count,
+              cast(null as int64) as mom_comparison_bev_dash_row_count,
+              cast(null as int64) as mom_comparison_phev_dash_row_count,
+              cast(null as int64) as yoy_comparison_dash_row_count,
+              cast(null as int64) as yoy_comparison_bev_dash_row_count,
+              cast(null as int64) as yoy_comparison_phev_dash_row_count,
+              'lta_m09_powertrain_v1' as classification_version,
+              'unit_test_release' as source_release_key,
+              date '2026-06-15' as source_retrieved_date,
+              date '2026-05-31' as latest_source_month_end
+          from mart_rows
+    expect:
+      rows: []
+
+exposures:
+  - name: how_fast_is_singapores_registered_vehicle_fleet_electrifying
+    label: How Fast Is Singapore's Registered Vehicle Fleet Electrifying?
+    type: dashboard
+    maturity: medium
+    description: >
+      Looker Studio national page for the latest LTA M09 registered-vehicle stock, showing
+      BEV/PHEV/plug-in shares and MoM/YoY growth by vehicle scope. A stable report URL has not
+      yet been assigned.
+    depends_on:
+      - ref('rpt_national_ev_adoption_current')
+      - ref('mart_national_ev_adoption_monthly')
+    owner:
+      name: Ryan Tang

@@ -1,0 +1,69 @@
+version: 2
+
+models:
+  - name: stg_lta_monthly_vehicle_population_by_fuel
+    description: >
+      Explicitly typed, unclassified view of the controlled LTA M09 monthly vehicle-population
+      seed, keyed on month_end x vehicle_type x source_fuel_type. Preserves both source labels
+      and the raw count token; no fuel classification and no aggregation.
+    columns:
+      - name: vehicle_population_key
+        description: MD5 of month_end, vehicle_type, and source_fuel_type.
+        tests: [unique, not_null]
+      - name: source_release_key
+        description: Release-identity key of the single approved source release.
+        tests: [not_null]
+      - name: month_end
+        description: Last calendar day of the source reporting month.
+        tests: [not_null]
+      - name: source_vehicle_category
+        description: Exact LTA vehicle category label.
+        tests: [not_null]
+      - name: vehicle_type
+        description: Controlled normalized vehicle-type key.
+        tests: [not_null]
+      - name: source_fuel_type
+        description: Exact LTA fuel label.
+        tests: [not_null]
+      - name: source_value_token
+        description: Exact source count token, including '-'.
+        tests: [not_null]
+      - name: vehicle_population
+        description: Non-negative normalized registered stock.
+        tests: [not_null]
+      - name: source_value_status
+        description: Whether the measure was reported numerically or dash-normalized.
+        tests: [not_null]
+
+  - name: stg_lta_monthly_vehicle_population_releases
+    description: >
+      Explicitly typed view of the single approved LTA M09 release-metadata row, exposing source
+      identity, retrieval provenance, checksums, and self-described counts and date bounds.
+    columns:
+      - name: source_release_key
+        description: Canonical content-derived release-identity key.
+        tests: [unique, not_null]
+      - name: source_dataset_id
+        description: Repository-owned stable source identity.
+        tests: [not_null]
+      - name: source_retrieved_date
+        description: Explicit date the project retrieved the official archive.
+        tests: [not_null]
+      - name: first_month_end
+        description: Earliest month represented by the release.
+        tests: [not_null]
+      - name: latest_month_end
+        description: Latest month represented by the release.
+        tests: [not_null]
+      - name: source_row_count
+        description: Observation-row count the release describes.
+        tests: [not_null]
+      - name: source_vehicle_category_count
+        description: Distinct source vehicle categories the release describes.
+        tests: [not_null]
+      - name: source_fuel_type_count
+        description: Distinct source fuel labels the release describes.
+        tests: [not_null]
+      - name: csv_sha256
+        description: Lower-case SHA-256 of the canonical CSV member.
+        tests: [not_null]

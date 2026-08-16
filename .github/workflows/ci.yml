@@ -75,6 +75,20 @@ jobs:
           uv run --group dev dbt test --select "resource_type:unit_test"
           --project-dir transform --profiles-dir transform --target ci
 
+      - name: Build national EV adoption chain (seed-only, isolated CI datasets)
+        env:
+          GCP_PROJECT_ID: sg-pipeline-dev
+          GCP_REGION: asia-southeast1
+          BQ_DATASET_RAW: unused_ci_raw
+          DBT_CI_SCHEMA: ci_${{ github.run_id }}_${{ github.run_attempt }}
+        # The `+` selection pulls seeds, staging, fact, mart, report and their schema and
+        # singular tests; the chain touches only committed seeds, so it needs no raw data.
+        # Unit tests are excluded because the previous step already ran them.
+        run: >-
+          uv run --group dev dbt build --select +rpt_national_ev_adoption_current
+          --exclude-resource-type unit_test
+          --project-dir transform --profiles-dir transform --target ci
+
       - name: Run pytest
         run: uv run --group dev pytest
 

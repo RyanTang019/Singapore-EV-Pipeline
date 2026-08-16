@@ -1,0 +1,186 @@
+version: 2
+
+seeds:
+  - name: lta_monthly_vehicle_population_by_fuel
+    description: >
+      Controlled LTA M09 monthly motor-vehicle population observations at
+      month_end x source_vehicle_category x source_fuel_type grain. Holds exactly one approved
+      full-history release; git history is the v1 release audit trail. A source '-' token is
+      preserved verbatim in source_value_token and normalized to zero with
+      source_value_status = 'source_dash_zero'.
+    config:
+      column_types:
+        source_release_key: string
+        month_end: date
+        source_vehicle_category: string
+        vehicle_type: string
+        source_fuel_type: string
+        source_value_token: string
+        vehicle_population: int64
+        source_value_status: string
+    columns:
+      - name: source_release_key
+        description: Content-derived SHA-256 identity key shared with the release-metadata seed.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('lta_monthly_vehicle_population_releases')
+                field: source_release_key
+      - name: month_end
+        description: Last calendar day of the source YYYY-MM reporting month.
+        tests: [not_null]
+      - name: source_vehicle_category
+        description: Exact LTA vehicle category label, preserved unmodified.
+        tests: [not_null]
+      - name: vehicle_type
+        description: Controlled normalized vehicle-type key derived from source_vehicle_category.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - cars
+                  - taxis
+                  - motorcycles
+                  - goods_and_other_vehicles
+                  - buses
+      - name: source_fuel_type
+        description: Exact LTA fuel label, preserved unmodified and joined to the policy seed.
+        tests: [not_null]
+      - name: source_value_token
+        description: >
+          Exact source count token including '-' and any thousands grouping. Pinned to string so
+          agate type inference cannot mangle the dash rows.
+        tests: [not_null]
+      - name: vehicle_population
+        description: Non-negative normalized registered stock; dash tokens normalize to zero.
+        tests: [not_null]
+      - name: source_value_status
+        description: Provenance of vehicle_population — reported by source, or dash-normalized.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [reported_numeric, source_dash_zero]
+
+  - name: lta_monthly_vehicle_population_releases
+    description: >
+      Exactly one reviewed controlled-source release row carrying the canonical release key,
+      source identity, retrieval provenance, self-described counts and date bounds, and both
+      archive and CSV checksums.
+    config:
+      column_types:
+        source_release_key: string
+        source_dataset_id: string
+        source_name: string
+        source_url: string
+        source_catalog_update_month: string
+        source_retrieved_date: date
+        first_month_end: date
+        latest_month_end: date
+        source_row_count: int64
+        source_vehicle_category_count: int64
+        source_fuel_type_count: int64
+        archive_filename: string
+        archive_sha256: string
+        csv_filename: string
+        csv_sha256: string
+    columns:
+      - name: source_release_key
+        description: SHA-256 of the versioned canonical release-identity payload.
+        tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('lta_monthly_vehicle_population_by_fuel')
+                field: source_release_key
+      - name: source_dataset_id
+        description: Repository-owned stable lower-snake-case source identity.
+        tests: [not_null]
+      - name: source_name
+        description: Reviewed human-readable LTA dataset label.
+        tests: [not_null]
+      - name: source_url
+        description: Official DataMall ZIP distribution URL.
+        tests: [not_null]
+      - name: source_catalog_update_month
+        description: >
+          DataMall's month-precision Last Update value as YYYY-MM. Excluded from release identity.
+        tests: [not_null]
+      - name: source_retrieved_date
+        description: Explicit date the project retrieved the official archive.
+        tests: [not_null]
+      - name: first_month_end
+        description: Earliest month_end represented by the release.
+        tests: [not_null]
+      - name: latest_month_end
+        description: Latest month_end represented by the release.
+        tests: [not_null]
+      - name: source_row_count
+        description: Generated observation-row count for this release.
+        tests: [not_null]
+      - name: source_vehicle_category_count
+        description: Distinct source vehicle categories in the release; expected 5.
+        tests: [not_null]
+      - name: source_fuel_type_count
+        description: Distinct source fuel labels in the release; expected 9 for the v1 release.
+        tests: [not_null]
+      - name: archive_filename
+        description: Reviewed downloaded ZIP filename.
+        tests: [not_null]
+      - name: archive_sha256
+        description: Lower-case SHA-256 of the downloaded ZIP bytes.
+        tests: [not_null]
+      - name: csv_filename
+        description: Canonical M09 CSV member filename inside the archive.
+        tests: [not_null]
+      - name: csv_sha256
+        description: Lower-case SHA-256 of the CSV member, used in release identity.
+        tests: [not_null]
+
+  - name: lta_fuel_type_classification
+    description: >
+      Versioned powertrain policy, one row per exact LTA source fuel label. Defines the three
+      published v1 concepts — battery-electric, plug-in hybrid, and plug-in vehicle — so no
+      ambiguous is_ev definition is ever exposed downstream.
+    config:
+      column_types:
+        source_fuel_type: string
+        powertrain_group: string
+        is_bev: bool
+        is_phev: bool
+        is_plug_in_vehicle: bool
+        classification_version: string
+    columns:
+      - name: source_fuel_type
+        description: Exact LTA fuel label; every observed label must map exactly once.
+        tests: [unique, not_null]
+      - name: powertrain_group
+        description: Controlled powertrain classification for this fuel label.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - combustion
+                  - non_plug_in_hybrid
+                  - battery_electric
+                  - plug_in_hybrid
+      - name: is_bev
+        description: True only for the Electric label.
+        tests: [not_null]
+      - name: is_phev
+        description: True only for the two (Plug-In) labels.
+        tests: [not_null]
+      - name: is_plug_in_vehicle
+        description: is_bev or is_phev.
+        tests: [not_null]
+      - name: classification_version
+        description: Policy version this mapping belongs to.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [lta_m09_powertrain_v1]
