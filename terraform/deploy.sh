@@ -31,6 +31,15 @@ readonly GHCR_USERNAME=ryantang019
 trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
 
 cd "$DIR"
+
+# Reclaim BEFORE pulling: a deploy adds ~3GB of images, and this runs on an
+# 80GB disk that has filled up before. Containers must be pruned first — a
+# stopped container pins the image it was created from, so the image-only
+# prune this used to do reclaimed almost nothing (7% of image space) while
+# thousands of dead Dagster run containers held the old tags alive. The
+# docker-reap timer does the same sweep daily; this is the pre-pull guard.
+docker container prune -f --filter "until=48h"
+docker image prune -a -f --filter "until=168h"
+
 docker compose --env-file .env --env-file .env.deploy pull
 docker compose --env-file .env --env-file .env.deploy up -d
-docker image prune -f --filter "until=72h"

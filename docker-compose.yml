@@ -1,7 +1,18 @@
+# Docker's json-file driver never rotates by default, so a long-lived
+# container's log grows unbounded on the VM's 80GB disk. The host also sets
+# this as a daemon-wide default (so Dagster's spawned run containers are
+# capped too); this anchor pins it for the four services compose owns.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgresql:
     image: postgres:15
     container_name: ev_pipeline_postgresql
+    logging: *default-logging
     environment:
       POSTGRES_USER: "dagster_user"                     #can change the user and password if we want
       POSTGRES_PASSWORD: "dagster_password"
@@ -20,6 +31,7 @@ services:
   user_code:
     image: ghcr.io/ryantang019/singapore-ev-pipeline/user-code:${IMAGE_TAG:-latest}
     container_name: ev_pipeline_user_code
+    logging: *default-logging
     restart: unless-stopped
     environment:
       DAGSTER_POSTGRES_USER: "dagster_user"
@@ -49,6 +61,7 @@ services:
       - -w
       - workspace.yaml
     container_name: ev_pipeline_webserver
+    logging: *default-logging
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
@@ -73,6 +86,7 @@ services:
       - dagster-daemon
       - run
     container_name: ev_pipeline_daemon
+    logging: *default-logging
     restart: unless-stopped
     environment:
       DAGSTER_POSTGRES_USER: "dagster_user"
