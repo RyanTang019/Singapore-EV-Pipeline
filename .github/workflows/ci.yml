@@ -11,11 +11,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  # Pull requests are untrusted once the repository is public. Keep this job
+  # credential-free: it is safe to run for fork PRs and Dependabot PRs.
+  static:
+    name: Static checks and pytest
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
 
     steps:
       - uses: actions/checkout@v4
@@ -40,6 +42,26 @@ jobs:
           DEV_SCHEMA_PREFIX: dummy_dev
           BQ_DATASET_RAW: dummy_raw
         run: uv run --group dev dbt parse --project-dir transform --profiles-dir transform
+
+      - name: Run pytest
+        run: uv run --group dev pytest
+
+  # WIF-backed tests intentionally run only for trusted pushes to main. Do not
+  # broaden this to pull_request without a separate, read-only identity.
+  warehouse:
+    name: Warehouse-backed dbt tests
+    needs: static
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - id: auth
         name: Authenticate to GCP (WIF)
@@ -88,9 +110,6 @@ jobs:
           uv run --group dev dbt build --select +rpt_national_ev_adoption_current
           --exclude-resource-type unit_test
           --project-dir transform --profiles-dir transform --target ci
-
-      - name: Run pytest
-        run: uv run --group dev pytest
 
       - name: Drop CI datasets
         if: ${{ always() && steps.auth.outcome == 'success' }}

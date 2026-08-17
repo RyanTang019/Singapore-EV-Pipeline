@@ -44,6 +44,8 @@ resource "google_iam_workload_identity_pool_provider" "github_ci" {
   attribute_condition = <<-EOT
     assertion.repository_id == '${local.github_repository_id}' &&
     assertion.repository == '${local.github_repository}' &&
+    assertion.event_name == 'push' &&
+    assertion.ref == 'refs/heads/main' &&
     assertion.workflow_ref.startsWith('${local.github_repository}/.github/workflows/ci.yml@')
   EOT
 
@@ -68,6 +70,8 @@ resource "google_iam_workload_identity_pool_provider" "github_terraform" {
   attribute_condition = <<-EOT
     assertion.repository_id == '${local.github_repository_id}' &&
     assertion.repository == '${local.github_repository}' &&
+    assertion.event_name == 'push' &&
+    assertion.ref == 'refs/heads/main' &&
     assertion.workflow_ref.startsWith('${local.github_repository}/.github/workflows/terraform.yml@')
   EOT
 

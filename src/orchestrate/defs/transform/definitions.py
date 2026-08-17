@@ -1,15 +1,15 @@
-"""Registers the dbt models as Dagster assets + a schedule that builds them.
+"""Registers the dbt models as Dagster assets + an optional schedule that builds them.
 
 `@dbt_assets` stamps one Dagster asset per dbt model out of the manifest; materializing it
 runs `dbt build` (models + tests). Wrapped in a `@definitions` function (rather than a bare
 module-level asset) so the resource binds in the same Definitions and the asset isn't also
 collected loose — load_from_defs_folder discovers and merges this with the ingestion defs.
 
-`dbt_build_schedule` runs the production build every 6 hours (SGT), at :15 past the hour. dbt unit
-tests run in WIF-authenticated CI, so production excludes that resource type. The :15
-offset keeps it off ingestion's :00/:30 boundaries, so it fires alone — after the :00 ingestion
-tick has finished — rather than being enqueued at the same instant. dagster.yaml's
-max_concurrent_runs=1 still serializes everything on the 4GB VM as a backstop.
+`dbt_build_schedule` retains the production build's 6-hour cadence for optional reactivation, but
+is stopped by default while BigQuery costs are being reduced. The registered `dbt_build_job`
+remains available for manual runs. dbt unit tests run in WIF-authenticated CI, so production
+excludes that resource type. If re-enabled, the :15 offset keeps the build off ingestion's
+:00/:30 boundaries, and dagster.yaml's max_concurrent_runs=1 serializes work on the 4GB VM.
 """
 
 from dagster import (
@@ -47,7 +47,7 @@ def transform_defs() -> Definitions:
         job=dbt_build_job,
         cron_schedule="15 */6 * * *",
         execution_timezone="Asia/Singapore",
-        default_status=DefaultScheduleStatus.RUNNING,
+        default_status=DefaultScheduleStatus.STOPPED,
     )
 
     return Definitions(

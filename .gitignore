@@ -17,6 +17,8 @@ dist/
 !.claude/skills/**
 !.claude/rules/
 !.claude/rules/**
+# Generic third-party skill is installed locally, not redistributed with the portfolio repo.
+.claude/skills/terraform-skill/
 
 # macOS
 .DS_Store

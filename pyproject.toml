@@ -1,7 +1,7 @@
 [project]
 name = "singapore-ev-pipeline"
 version = "0.1.0"
-description = "Add your description here"
+description = "Production-style Singapore EV analytics pipeline built with Dagster, dbt, BigQuery, and Terraform."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -21,6 +21,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "geomet>=1.1.0",
+    "pyyaml>=6",
     "pytest>=8",
     "ruff",
     "sqlfluff",

@@ -12,9 +12,10 @@ the warehouse, dbt models, orchestration, the dashboard — is plumbing in servi
 
 Charger availability is captured **every 30 minutes and appended** (never overwritten), so the
 warehouse accrues a historical time series rather than a snapshot. That time series is the core
-asset: it lets us ask **when** (peak-hour / day-of-week saturation), and joining it against demand
-proxies — residential density (HDB, demographics), EV adoption (vehicle population), and
-traffic/carpark patterns — lets us ask **where** supply is structurally under- or over-provisioned.
+asset: it lets us ask **when** (peak-hour / day-of-week saturation), while planning-area population
+and charger density let us ask **where** supply is structurally under- or over-provisioned. A
+separate national adoption chain tracks how quickly Singapore's registered vehicle fleet is
+electrifying; it is context, not observed planning-area EV ownership.
 
 The aim is to move from *descriptive* ("here is current charger utilisation") to a *supply–demand
 mismatch* read — identifying under-served areas and the times infrastructure is most strained.
@@ -25,6 +26,10 @@ mismatch* read — identifying under-served areas and the times infrastructure i
 - [`gcloud` CLI](https://cloud.google.com/sdk/docs/install) — for BigQuery authentication (`brew install --cask google-cloud-sdk`).
 - **GCP access** — your Google account needs IAM access to the dev project (`sg-pipeline-dev`) and its `dev_raw` dataset. Ask a project admin to grant it *before* you start; otherwise auth succeeds but every query 403s.
 - An [LTA DataMall](https://datamall.lta.gov.sg/content/datamall/en/request-for-api.html) API key (free, self-serve) for ingestion.
+
+> **Public-repository note:** the hosted GCP and Hetzner environments are not shared with readers.
+> Running a fork end to end requires your own cloud projects, credentials, and LTA DataMall key;
+> the screenshots and eventual view-only dashboard are the zero-setup portfolio demo.
 
 ## Setup
 
@@ -63,14 +68,16 @@ The pipeline runs in two stages: **ingest** (Dagster writes raw API payloads to 
    ./bin/dbt build
    ```
 
-   Use `build`, not `run` — `build` also loads the `planning_areas` seed that the spatial models (`dim_planning_area`, the `int_*_tagged` models) depend on, and runs the tests.
+   Use `build`, not `run` — `build` also loads the seeds used by the spatial and national-adoption
+   models, then runs models and tests in DAG order.
 
 ## Project Structure
 
 ```
 Singapore-EV-Pipeline/
   src/orchestrate/  ← Dagster orchestration (assets in defs/)
-  transform/        ← dbt transformation (BigQuery adapter)
+  scripts/          ← deterministic controlled-source seed generators
+  transform/        ← dbt staging, intermediate, mart, report, and seed layers
   terraform/        ← infrastructure as code (BigQuery, IAM, Secret Manager, Hetzner VM)
 ```
 
@@ -102,6 +109,37 @@ Use the local wrapper (a SQLite Dagster instance that bypasses the VM-only `dags
 `build` loads seeds, runs models, and runs tests in DAG order — prefer it over bare `run`,
 which skips the `planning_areas` seed the spatial models depend on. Defaults to the `dev`
 target; production uses `./bin/dbt build --target prod`.
+
+## National EV adoption context
+
+The implemented national-adoption feature uses LTA DataMall's **Monthly Motor Vehicle Population
+Statistics by Type of Fuel Used (M09)**. The current controlled release covers January 2016 through
+May 2026 at national `month_end × vehicle type × source fuel type` grain.
+
+```text
+official LTA M09 ZIP (local, gitignored)
+  → deterministic observation + release-metadata seeds
+  → staging views
+  → fct_national_ev_adoption_monthly
+  → mart_national_ev_adoption_monthly
+  → rpt_national_ev_adoption_current
+  → Looker Studio page (pending)
+```
+
+The mart exposes registered stock, shares, and month-over-month/year-over-year change for five
+vehicle types plus an `all_vehicles` rollup. Its versioned policy treats `Electric` as BEV and only
+the two source labels containing `(Plug-In)` as PHEV; conventional petrol-electric and
+diesel-electric hybrids are not plug-in vehicles. The current report fails closed unless the latest
+month has all six complete scopes, and exposes date references as strings so a Looker date control
+cannot hide the page.
+
+This dataset is **national only**. It must not be allocated across planning areas or injected into
+the within-date residential supply-demand rank as if it measured local EV ownership. Refreshes are
+controlled source updates, not scheduled API ingestion: retrieve and review the official archive,
+then regenerate the committed seed pair with
+[`scripts/generate_lta_vehicle_population_seed.py`](scripts/generate_lta_vehicle_population_seed.py).
+The tracked [seed schema and tests](transform/seeds/national_ev_adoption.yml) document the public
+data contract.
 
 ## Infrastructure
 
@@ -162,9 +200,11 @@ A Hetzner CPX22 VM (Falkenstein `fsn1`, static IP) hosts the Dockerised Dagster 
 the host (Docker, gcloud, deploy user, `deploy.sh`). Code is shipped as GHCR images via a
 GitHub Actions build + SSH deploy pipeline (no repo clone on the VM).
 
-## Roadmap
+## Project status
 
-**Infrastructure**
+The engineering path is implemented end to end.
+
+**Infrastructure and delivery**
 
 - [X] Provision BigQuery datasets via Terraform (`prod_raw` + shared `dev_raw` + dev/prod `staging`/`marts`)
 - [X] IAM bindings for Dagster service account
@@ -179,43 +219,66 @@ GitHub Actions build + SSH deploy pipeline (no repo clone on the VM).
 - [X] Hetzner firewall: restrict inbound to SSH only
 - [X] Shared landing zone for both developers (`dev_raw`)
 - [X] Verify LTA EV data source against the live API (endpoint, shape, availability)
-- [ ] Workload Identity Federation to remove the long-lived SA key from GitHub Secrets
+- [X] Scoped Workload Identity Federation for CI and Terraform GitHub Actions jobs
 
 **Ingestion** — opaque raw landing (ELT)
 
 Every source lands the **whole untouched API response** as one row
 `{batch_id, source_name, ingested_at, payload(JSON)}`; all unnesting/exploding happens in dbt
 (in-warehouse), never on the VM. Preserving the original payload means a source schema change can
-never lose data on this append-only feed. See `docs/superpowers/specs/2026-06-08-opaque-raw-landing-design.md`.
+never lose data on this append-only feed. The tracked
+[`landing.py`](src/orchestrate/defs/ingestion/landing.py) module is the shared write boundary.
 
 - [X] `ev_charger_availability` asset — `EVCBatch` → 2-step S3 link (5-min expiry, retry-once) →
   envelope guard → one opaque `payload` row → `{BQ_DATASET_RAW}.ev_charger_availability` (`WRITE_APPEND`)
   - [X] Loader creates the table via `CREATE_IF_NEEDED` from a code-owned `RAW_SCHEMA` (no Terraform)
   - [X] Verified live against `dev_raw` (1 row, 2,688 locations queryable via `JSON_QUERY_ARRAY`)
-- [ ] TrafficSpeedBands → CarParkAvailability, deliberately per-source on the uniform load
-  (`docs/superpowers/specs/2026-06-08-per-source-ingestion-traffic-carpark-design.md`)
-- [ ] Config-driven ingestion engine: extract `load_raw` + extractor drivers + asset factory +
+- [X] Controlled LTA M09 national vehicle-population seed workflow (separate from scheduled raw
+  ingestion)
+- [X] `TrafficSpeedBands` and `CarParkAvailabilityv2` on the same opaque landing boundary
+- [X] Config-driven ingestion engine: extract `load_raw` + extractor drivers + asset factory +
   manifest from the 3 concrete sources
-- [ ] Dagster schedule (~5–15 min, matching the API refresh)
-- [ ] Add remaining sources (transit, demographics, vehicle pop, HDB)
+- [X] Independent 30-minute Dagster schedules for all three live sources
+- [ ] Add remaining scheduled sources (transit, HDB, and other demand proxies)
 
 **Transformation**
 
-- [ ] dbt staging model: explode `payload` JSON (`JSON_QUERY_ARRAY(payload, '$.evLocationsData')`) → connector-grain `stg_ev_charger`
-- [ ] dbt mart models — fact and dimension tables (star schema on `location_id`)
-- [ ] dbt tests (not null, uniqueness, referential integrity)
+- [X] National EV adoption chain: controlled seeds → staging → fuel-grain fact → monthly
+  six-scope mart → fail-closed current report
+- [X] National-adoption schema, singular, unit, anchor, reconciliation, lineage, and isolated CI
+  build coverage
+- [X] dbt staging models explode and type all three opaque source payloads
+- [X] Spatial intermediate models tag EV locations, carparks, and traffic links to planning areas
+- [X] Charger, carpark, traffic, population, supply-demand, and national-adoption marts and reports
+- [X] Schema, singular, unit, anchor, lineage, grain, reconciliation, and fail-closed report tests
 
 **Orchestration**
 
-- [ ] Wire dbt as `@dbt_assets` in Dagster (runs `--target prod` on the VM)
-- [ ] Schedule the end-to-end pipeline (ingest → dbt)
+- [X] Register dbt models as Dagster `@dbt_assets` using the production target on the VM
+- [X] Run the three ingestion schedules independently every 30 minutes
+- [ ] Reactivate the registered six-hour dbt build schedule after the dashboard refresh review
 - [ ] Add sensors / freshness checks as needed
 
 **Observability & Delivery**
 
 - [ ] Add data quality monitoring (Elementary or Great Expectations)
-- [ ] Build Looker Studio dashboard on top of marts
-- [ ] CI/CD with GitHub Actions (`terraform plan` on PRs, `dbt test` on merge)
+- [ ] Build the Looker Studio national EV adoption page on
+  `rpt_national_ev_adoption_current` and `mart_national_ev_adoption_monthly`
+- [ ] Finish the remaining Looker Studio dashboard pages on top of marts
+- [X] Credential-free pull-request CI plus WIF-backed BigQuery tests and Terraform delivery on
+  trusted pushes to `main`
+- [ ] Configure required approval on the GitHub `production` environment when the repository is
+  made public
+- [ ] Replace the Hetzner runtime's long-lived GCP service-account key with an external workload
+  identity mechanism
+- [ ] Add dashboard screenshots and an optional view-only link from the tracked `assets/` directory
+
+## License and data attribution
+
+The project's original code and documentation are available under the [MIT License](LICENSE).
+Government-source datasets retain their own terms; see [Data sources and
+attribution](DATA_SOURCES.md) for the applicable Singapore Open Data Licence notices, source links,
+and retrieval dates. This independent portfolio project is not endorsed by its data providers.
 
 ## References
 

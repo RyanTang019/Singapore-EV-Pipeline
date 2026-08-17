@@ -203,12 +203,12 @@ def test_national_ev_adoption_lineage():
         assert not supply_demand_keys & graph.get(key).parent_keys, key
 
 
-def test_dbt_build_schedule_registered():
+def test_dbt_build_schedule_registered_but_stopped_by_default():
     defs = load_from_defs_folder(path_within_project=Path(orchestrate.__file__).parent)
     sched = defs.resolve_schedule_def("dbt_build_schedule")
     assert sched.cron_schedule == "15 */6 * * *"
     assert sched.execution_timezone == "Asia/Singapore"
-    assert sched.default_status == DefaultScheduleStatus.RUNNING
+    assert sched.default_status == DefaultScheduleStatus.STOPPED
 
 
 def test_dbt_build_job_selects_the_dbt_models():

@@ -23,7 +23,7 @@ run_coordinator:
   class: QueuedRunCoordinator
   config:
     # 4GB VM runs one job at a time; without this max_concurrent_runs defaults
-    # to 10, which would dequeue the 6-hourly dbt build alongside ingestion.
+    # to 10 and can dequeue simultaneous ingestion or manual dbt work together.
     max_concurrent_runs: 1
 
 storage:
@@ -38,4 +38,3 @@ storage:
       db_name:
         env: DAGSTER_POSTGRES_DB
       port: 5432
-
