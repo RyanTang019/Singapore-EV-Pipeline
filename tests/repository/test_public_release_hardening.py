@@ -1,4 +1,6 @@
+import os
 import re
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -84,3 +86,55 @@ def test_project_metadata_is_ready_for_public_use():
 
     assert 'description = "Add your description here"' not in pyproject
     assert '"pyyaml>=6"' in pyproject
+
+
+def load_env_example() -> dict[str, str]:
+    values = {}
+    for raw_line in (REPO_ROOT / ".env.example").read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        assignment = line.split("#", 1)[0].strip()
+        key, value = assignment.split("=", 1)
+        values[key] = value.strip().strip("'\"")
+    return values
+
+
+def test_env_example_uses_reader_owned_placeholders_and_safe_defaults():
+    env = load_env_example()
+
+    assert env["GCP_PROJECT_ID"] == "your-gcp-project-id"
+    assert env["DEV_SCHEMA_PREFIX"] == "dev_yourhandle"
+    assert env["LTA_API_KEY"] == "your_lta_api_key"
+    assert env["GCP_REGION"] == "asia-southeast1"
+    assert env["BQ_DATASET_RAW"] == "dev_raw"
+
+
+def run_setup_with_platform(tmp_path: Path, platform: str) -> subprocess.CompletedProcess[str]:
+    fake_uname = tmp_path / "uname"
+    fake_uname.write_text(f"#!/bin/sh\nprintf '%s\\n' '{platform}'\n", encoding="utf-8")
+    fake_uname.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
+    return subprocess.run(
+        ["/bin/sh", str(REPO_ROOT / "bin" / "setup")],
+        capture_output=True,
+        check=False,
+        env=env,
+        text=True,
+    )
+
+
+def test_setup_rejects_non_macos_before_installing_tools(tmp_path):
+    result = run_setup_with_platform(tmp_path, "Linux")
+
+    assert result.returncode == 1
+    assert "macOS" in result.stderr
+    assert "Homebrew" in result.stderr
+
+
+def test_setup_explains_when_homebrew_is_missing(tmp_path):
+    result = run_setup_with_platform(tmp_path, "Darwin")
+
+    assert result.returncode == 1
+    assert "Homebrew is required" in result.stderr

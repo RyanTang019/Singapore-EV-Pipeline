@@ -1,6 +1,19 @@
 #!/usr/bin/env sh
-# One-time developer setup. Run from the repo root: ./bin/setup
+# One-time macOS developer setup. Requires Homebrew.
+# Run from the repo root: ./bin/setup
 set -e
+
+if [ "$(uname -s)" != "Darwin" ]; then
+    echo "Error: bin/setup supports macOS with Homebrew only." >&2
+    echo "On other platforms, run 'uv sync --group dev' and copy .env.example manually." >&2
+    exit 1
+fi
+
+if ! command -v brew > /dev/null 2>&1; then
+    echo "Error: Homebrew is required by bin/setup." >&2
+    echo "Install it from https://brew.sh, then run ./bin/setup again." >&2
+    exit 1
+fi
 
 REPO_ROOT="$(CDPATH= cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
