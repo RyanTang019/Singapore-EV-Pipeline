@@ -24,7 +24,7 @@ mismatch* read — identifying under-served areas and the times infrastructure i
 
 - [`uv`](https://docs.astral.sh/uv/) — Python package manager (`brew install uv`). Manages the Python 3.10+ toolchain for you.
 - [`gcloud` CLI](https://cloud.google.com/sdk/docs/install) — for BigQuery authentication (`brew install --cask google-cloud-sdk`).
-- **GCP access** — your Google account needs IAM access to the dev project (`sg-pipeline-dev`) and its `dev_raw` dataset. Ask a project admin to grant it *before* you start; otherwise auth succeeds but every query 403s.
+- **A GCP project you control** — with permission to enable BigQuery and create datasets and tables.
 - An [LTA DataMall](https://datamall.lta.gov.sg/content/datamall/en/request-for-api.html) API key (free, self-serve) for ingestion.
 
 > **Public-repository note:** the hosted GCP and Hetzner environments are not shared with readers.
@@ -39,14 +39,39 @@ From the repo root:
 ./bin/setup
 ```
 
-This installs Python deps, installs lefthook, wires the pre-push hook, and creates a `.env` from `.env.example` if one doesn't exist. Then:
+This installs Python deps, installs lefthook, wires the pre-push hook, and creates a `.env` from
+`.env.example` if one doesn't exist. Then prepare an isolated BigQuery landing dataset in your own
+project:
 
-1. Fill in `.env` — at minimum `LTA_API_KEY` and `DEV_SCHEMA_PREFIX` (`dev_<your_handle>`). Confirm the GCP defaults: `GCP_PROJECT_ID=sg-pipeline-dev`, `GCP_REGION=asia-southeast1`, and **leave `BQ_DATASET_RAW=dev_raw`** (the shared dev landing zone — never `prod_raw`).
-2. Authenticate to BigQuery via Application Default Credentials:
+1. Authenticate the `gcloud` CLI, select your project, enable BigQuery, and create `dev_raw` in the
+   same region used by the dbt profile:
+
+   ```bash
+   gcloud auth login
+   gcloud config set project your-gcp-project-id
+   gcloud services enable bigquery.googleapis.com
+   bq --location=asia-southeast1 mk --dataset your-gcp-project-id:dev_raw
+   ```
+
+2. Authenticate local application code through Application Default Credentials:
 
    ```bash
    gcloud auth application-default login
    ```
+
+3. Fill in `.env` with your project ID and LTA key. Keep `BQ_DATASET_RAW=dev_raw`, and set
+   `DEV_SCHEMA_PREFIX` to a personal value such as `dev_yourhandle`:
+
+   ```bash
+   GCP_PROJECT_ID=your-gcp-project-id
+   GCP_REGION=asia-southeast1
+   BQ_DATASET_RAW=dev_raw
+   DEV_SCHEMA_PREFIX=dev_yourhandle
+   LTA_API_KEY=your_lta_api_key
+   ```
+
+The hosted maintainer projects are intentionally not part of public setup. A fork writes only to
+the GCP project named in its local `.env`.
 
 The pre-push hook runs `ruff check` and `pytest -x -q` before every push. To bypass in an emergency: `git push --no-verify`.
 
@@ -173,23 +198,24 @@ terraform apply
 
 ### Local development — environment selection
 
-Ingestion writes to whatever dataset `BQ_DATASET_RAW` points at, so the dev/prod split is a single
-env var. **Always point local ingestion at the shared dev landing zone — never at production
-`prod_raw`:**
+Ingestion writes to whatever dataset `BQ_DATASET_RAW` points at. For public/local development,
+always use a raw dataset in a GCP project you control; the hosted dev and production projects are
+maintainer-only:
 
 ```bash
 # .env (local dev) — authenticate to BigQuery via ADC, not a key file:
-GCP_PROJECT_ID=sg-pipeline-dev
+GCP_PROJECT_ID=your-gcp-project-id
 GCP_REGION=asia-southeast1      # dbt profiles.yml reads this for the BigQuery location
-BQ_DATASET_RAW=dev_raw          # shared landing zone (all devs write here)
-DEV_SCHEMA_PREFIX=dev_<handle>  # your private staging/marts (dbt appends _staging/_marts)
+BQ_DATASET_RAW=dev_raw          # raw landing dataset in your project
+DEV_SCHEMA_PREFIX=dev_yourhandle  # dbt appends _staging/_intermediate/_marts/_seed
 LTA_API_KEY=...                 # your own LTA DataMall key
 # then: gcloud auth application-default login   (ADC; do NOT set GOOGLE_APPLICATION_CREDENTIALS)
 ./bin/dg-dev                    # materialize freely — prod is never touched
 ```
 
-- **Production** (the VM) sets `GCP_PROJECT_ID` to the prod project + `BQ_DATASET_RAW=prod_raw` from
-  Secret Manager; the Dagster schedule runs there. Don't run ingestion locally against `prod_raw`.
+- **Public/local development:** your `.env` selects your own project and its `dev_raw` dataset.
+- **Production** (the VM) receives its project and `BQ_DATASET_RAW=prod_raw` from Secret Manager;
+  those values are not shared with public readers.
 - **dbt:** local `./bin/dbt build` defaults to the `dev` target (writes to your
   `dev_<handle>_staging`/`_marts`); production uses `./bin/dbt build --target prod`.
 

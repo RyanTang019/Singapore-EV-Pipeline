@@ -54,6 +54,45 @@ def test_terraform_separates_untrusted_validation_from_prod_jobs():
     assert jobs["apply"]["environment"] == "production"
 
 
+def test_deploy_job_uses_protected_production_environment():
+    workflow = load_workflow("deploy.yml")
+    deploy = workflow["jobs"]["deploy"]
+
+    assert deploy["environment"] == "production"
+    assert deploy["permissions"] == {"contents": "read"}
+
+
+def test_codeowners_requires_maintainer_review_for_sensitive_paths():
+    codeowners = (REPO_ROOT / ".github" / "CODEOWNERS").read_text(
+        encoding="utf-8"
+    )
+    rules = [
+        line.split()
+        for raw_line in codeowners.splitlines()
+        if (line := raw_line.strip()) and not line.startswith("#")
+    ]
+    expected_patterns = {
+        "/.github/CODEOWNERS",
+        "/.github/workflows/",
+        "/terraform/",
+        "/Dockerfile*",
+        "/.dockerignore",
+        "/pyproject.toml",
+        "/uv.lock",
+        "/docker-compose.yml",
+        "/dagster.yaml",
+        "/workspace.yaml",
+        "/transform/profiles.yml",
+        "/transform/dbt_project.yml",
+        "/transform/macros/",
+        "/transform/models/staging/sources.yml",
+        "/src/orchestrate/defs/transform/",
+    }
+
+    assert {rule[0] for rule in rules} == expected_patterns
+    assert all(rule[1:] == ["@RyanTang019", "@oliverlrj"] for rule in rules)
+
+
 def test_wif_providers_only_accept_pushes_to_main():
     identity = (REPO_ROOT / "terraform" / "prod" / "identity.tf").read_text(
         encoding="utf-8"
@@ -79,6 +118,21 @@ def test_readme_is_self_contained_for_public_readers():
     assert not re.findall(r"docs/[A-Za-z0-9_./-]+\.md", readme)
     assert "## Project status" in readme
     assert "## Roadmap" not in readme
+
+
+def test_readme_onboarding_uses_reader_owned_gcp_project():
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    onboarding = readme.split("## Infrastructure", maxsplit=1)[0]
+    local_development = readme.split(
+        "### Local development — environment selection", maxsplit=1
+    )[1].split("### VM", maxsplit=1)[0]
+
+    assert "sg-pipeline-dev" not in onboarding
+    assert "sg-pipeline-dev" not in local_development
+    assert "Ask a project admin" not in onboarding
+    assert "GCP_PROJECT_ID=your-gcp-project-id" in onboarding
+    assert "gcloud services enable bigquery.googleapis.com" in onboarding
+    assert "bq --location=asia-southeast1 mk --dataset" in onboarding
 
 
 def test_project_metadata_is_ready_for_public_use():
