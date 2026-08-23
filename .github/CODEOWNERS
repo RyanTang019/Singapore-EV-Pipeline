@@ -1,0 +1,16 @@
+# Changes to delivery and infrastructure controls require another maintainer's review.
+/.github/CODEOWNERS @RyanTang019 @oliverlrj
+/.github/workflows/ @RyanTang019 @oliverlrj
+/terraform/ @RyanTang019 @oliverlrj
+/Dockerfile* @RyanTang019 @oliverlrj
+/.dockerignore @RyanTang019 @oliverlrj
+/pyproject.toml @RyanTang019 @oliverlrj
+/uv.lock @RyanTang019 @oliverlrj
+/docker-compose.yml @RyanTang019 @oliverlrj
+/dagster.yaml @RyanTang019 @oliverlrj
+/workspace.yaml @RyanTang019 @oliverlrj
+/transform/profiles.yml @RyanTang019 @oliverlrj
+/transform/dbt_project.yml @RyanTang019 @oliverlrj
+/transform/macros/ @RyanTang019 @oliverlrj
+/transform/models/staging/sources.yml @RyanTang019 @oliverlrj
+/src/orchestrate/defs/transform/ @RyanTang019 @oliverlrj
