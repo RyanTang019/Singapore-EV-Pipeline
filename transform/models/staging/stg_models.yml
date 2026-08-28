@@ -8,9 +8,7 @@ models:
       vocabularies; longtitude misspelling fixed to longitude.
     columns:
       - name: connector_id
-        description: "Physical connector ID (evCpId)."
-        tests:
-          - not_null
+        description: "Physical connector ID (evCpId). not_null covered by assert_stg_ev_charger_availability_not_null."
       - name: batch_id
         description: >
           Dagster run_id of the ingesting run. Passed through from raw, where it is
@@ -29,9 +27,7 @@ models:
               arguments:
                 values: ['available', 'occupied', 'unavailable', 'offline_100', 'unknown']
       - name: snapshot_time
-        description: "True snapshot time from payload.LastUpdatedTime (distinct from ingested_at)."
-        tests:
-          - not_null
+        description: "True snapshot time from payload.LastUpdatedTime (distinct from ingested_at). not_null covered by assert_stg_ev_charger_availability_not_null."
 
   - name: stg_traffic_speed_bands
     description: >
@@ -42,9 +38,7 @@ models:
       exposed as snapshot_time normalized to true UTC; distinct from ingested_at.
     columns:
       - name: link_id
-        description: "LTA road-link ID (LinkID) — the grain within a batch."
-        tests:
-          - not_null
+        description: "LTA road-link ID (LinkID) — the grain within a batch. not_null covered by assert_stg_traffic_speed_bands_not_null."
       - name: batch_id
         description: >
           Dagster run_id of the ingesting run. Passed through from raw, where it is
@@ -56,17 +50,11 @@ models:
           from raw, where it is mode=REQUIRED — deliberately no not_null test, same
           reason as batch_id.
       - name: snapshot_time
-        description: "Authoritative snapshot time from payload.lastUpdatedTime, tz-normalized to UTC."
-        tests:
-          - not_null
+        description: "Authoritative snapshot time from payload.lastUpdatedTime, tz-normalized to UTC. not_null covered by assert_stg_traffic_speed_bands_not_null."
       - name: speed_band
-        description: "LTA speed band 1 (slowest) to 8 (fastest); 0 = no reading."
-        tests:
-          - not_null
+        description: "LTA speed band 1 (slowest) to 8 (fastest); 0 = no reading. not_null covered by assert_stg_traffic_speed_bands_not_null."
       - name: is_no_reading
-        description: "True when SpeedBand = 0 (LTA 'no speed reading', not congestion)."
-        tests:
-          - not_null
+        description: "True when SpeedBand = 0 (LTA 'no speed reading', not congestion). not_null covered by assert_stg_traffic_speed_bands_not_null."
       - name: speed_band_for_metrics
         description: "speed_band with 0 nulled out (NULLIF) — the metrics-safe value for congestion aggregates."
 
@@ -83,13 +71,9 @@ models:
       ingested_at (true UTC).
     columns:
       - name: carpark_id
-        description: "LTA CarParkID. Not unique alone — pair with lot_type, and even then not strictly unique."
-        tests:
-          - not_null
+        description: "LTA CarParkID. Not unique alone — pair with lot_type, and even then not strictly unique. not_null covered by assert_stg_carpark_availability_not_null."
       - name: lot_type
-        description: "Vehicle class: C/H/Y (Cars/Heavy/motorcYcles) plus undocumented S."
-        tests:
-          - not_null
+        description: "Vehicle class: C/H/Y (Cars/Heavy/motorcYcles) plus undocumented S. not_null covered by assert_stg_carpark_availability_not_null."
       - name: batch_id
         description: >
           Dagster run_id of the ingesting run. Passed through from raw, where it is
@@ -107,9 +91,7 @@ models:
           traffic snapshot_time columns — so it inherits raw's mode=REQUIRED and
           deliberately has no not_null test.
       - name: available_lots
-        description: "Currently available lots for this carpark + lot type (no total capacity in feed)."
-        tests:
-          - not_null
+        description: "Currently available lots for this carpark + lot type (no total capacity in feed). not_null covered by assert_stg_carpark_availability_not_null."
       - name: source_offset
         description: >
           0-based position of this row in the payload $.value array; last-observed
