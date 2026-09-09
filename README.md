@@ -31,6 +31,9 @@ mismatch* read — identifying under-served areas and the times infrastructure i
 > Running a fork end to end requires your own cloud projects, credentials, and LTA DataMall key;
 > the screenshots and eventual view-only dashboard are the zero-setup portfolio demo.
 
+The source repository is public. The maintainer's two GHCR deployment images (`dagster` and
+`user-code`) remain private; local development uses the source setup below.
+
 ## Setup
 
 From the repo root:
@@ -293,8 +296,7 @@ never lose data on this append-only feed. The tracked
 - [ ] Finish the remaining Looker Studio dashboard pages on top of marts
 - [X] Credential-free pull-request CI plus WIF-backed BigQuery tests and Terraform delivery on
   trusted pushes to `main`
-- [ ] Configure required approval on the GitHub `production` environment when the repository is
-  made public
+- [ ] Configure required approval on the GitHub `production` environment (repository is now public)
 - [ ] Replace the Hetzner runtime's long-lived GCP service-account key with an external workload
   identity mechanism
 - [ ] Add dashboard screenshots and an optional view-only link from the tracked `assets/` directory
